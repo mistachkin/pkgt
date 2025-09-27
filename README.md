@@ -9,7 +9,7 @@
 ## Table of contents
 
 * [Why pkgt?](#why-pkgt)
-* [What’s in this repo](#whats-in-this-repo)
+* [What’s in this repository](#whats-in-this-repository)
 * [Security model at a glance](#security-model-at-a-glance)
 * [Supported runtimes & prerequisites](#supported-runtimes--prerequisites)
 * [Quick start (consumers)](#quick-start-consumers)
@@ -39,7 +39,7 @@ Distributing Tcl/Eagle packages has traditionally involved a mix of ad‑hoc ste
 
 ---
 
-## What’s in this repo
+## What’s in this repository
 
 ```
 .
@@ -88,7 +88,7 @@ Distributing Tcl/Eagle packages has traditionally involved a mix of ad‑hoc ste
 * **Platforms**: Windows, Linux, macOS (no OS‑specific assumptions in the client libraries).
 * **OpenPGP**: An implementation of the OpenPGP standard (e.g. GPG).
 
-* **Tools inside this repo**:
+* **Tools inside this repository**:
 
   * **Tcl integration** via `client/1.0/neutral/pkgIndex.tcl` and `client/1.0/neutral/common.tcl`.
   * **Eagle integration** via `client/1.0/neutral/pkgIndex.eagle` (+ Harpy-signed variants).
@@ -107,7 +107,7 @@ Distributing Tcl/Eagle packages has traditionally involved a mix of ad‑hoc ste
 
    ```
    your-project/
-     vendor/pkgt/           # this repo (or a release snapshot)
+     vendor/pkgt/           # This repository (or a release snapshot)
        client/1.0/neutral/  # Tcl/Eagle indices + client libs
        externals/           # Eagle + Harpy helpers
    ```
