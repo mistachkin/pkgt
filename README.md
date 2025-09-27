@@ -1,6 +1,6 @@
 # Package Client Toolset (pkgt)
 
-> Secure, cross‑platform package delivery for **Tcl** and **Eagle** — designed to fetch on‑demand or pre‑install packages with cryptographic verification. ([GitHub][1])
+> Secure, cross‑platform package delivery for **Tcl** and **Eagle** — designed to fetch on‑demand or pre‑install packages with cryptographic verification.
 
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](LICENSE)
 
@@ -33,9 +33,9 @@
 
 Distributing Tcl/Eagle packages has traditionally involved a mix of ad‑hoc steps, platform quirks, and trust problems. **pkgt** addresses this by:
 
-* **Fetching on demand** (transparent to `package require`) or **pre‑installing** ahead of time. ([Tcl][2])
-* **Verifying everything**: package metadata and files are **OpenPGP** signed; **Eagle** scripts are **also** signed with **Harpy**. ([Tcl][2])
-* **Working for both Tcl and Eagle** with the same client toolset. ([GitHub][1])
+* **Fetching on demand** (transparent to `package require`) or **pre‑installing** ahead of time.
+* **Verifying everything**: package metadata and files are **OpenPGP** signed; **Eagle** scripts are **also** signed with **Harpy**.
+* **Working for both Tcl and Eagle** with the same client toolset.
 
 ---
 
@@ -65,17 +65,17 @@ Distributing Tcl/Eagle packages has traditionally involved a mix of ad‑hoc ste
    └─ v1.html               # v1 toolset documentation (reference)
 ```
 
-> File names and layout above come from the initial import. See the commit tree for the authoritative list. The current version is **1.0.10**. ([GitHub][3])
+> File names and layout above come from the initial import. See the commit tree for the authoritative list. The current version is **1.0.10**.
 
 ---
 
 ## Security model at a glance
 
-* **Metadata path**: The client asks a repository service for a package that satisfies a **TIP #268** version requirement. The server returns a small **signed script** that knows what to fetch. ([Tcl][2])
-* **File path**: The client downloads one or more **OpenPGP‑signed** files and verifies them **before** the package is made available to the interpreter. ([Tcl][2])
-* **Eagle scripts**: In addition to OpenPGP, **Harpy** signatures are verified for Eagle files. ([Tcl][2])
+* **Metadata path**: The client asks a repository service for a package that satisfies a **TIP #268** version requirement. The server returns a small **signed script** that knows what to fetch.
+* **File path**: The client downloads one or more **OpenPGP‑signed** files and verifies them **before** the package is made available to the interpreter.
+* **Eagle scripts**: In addition to OpenPGP, **Harpy** signatures are verified for Eagle files.
 
-**Result:** You get transparent, on‑demand package resolution with end‑to‑end verification — suitable for both public and private repositories. ([Tcl][2])
+**Result:** You get transparent, on‑demand package resolution with end‑to‑end verification — suitable for both public and private repositories.
 
 ---
 
@@ -84,14 +84,16 @@ Distributing Tcl/Eagle packages has traditionally involved a mix of ad‑hoc ste
 * **Tcl**: Standard Tcl (8.5+) environments.
 * **Eagle**: Any environment that can run Eagle scripts.
 * **Platforms**: Windows, Linux, macOS (no OS‑specific assumptions in the client libraries).
+* **OpenPGP**: An implementation of the OpenPGP standard (e.g. GPG).
+
 * **Tools inside this repo**:
 
-  * **Tcl integration** via `client/1.0/neutral/pkgIndex.tcl` and `client/1.0/neutral/common.tcl`. ([GitHub][3])
-  * **Eagle integration** via `client/1.0/neutral/pkgIndex.eagle` (+ Harpy-signed variants). ([GitHub][3])
-  * **Harpy signing utility** at `externals/Harpy/Tools/sign.eagle`. ([GitHub][3])
-  * **Eagle library packaged for Tcl** under `externals/Eagle/lib/Eagle1.0/`. ([GitHub][3])
+  * **Tcl integration** via `client/1.0/neutral/pkgIndex.tcl` and `client/1.0/neutral/common.tcl`.
+  * **Eagle integration** via `client/1.0/neutral/pkgIndex.eagle` (+ Harpy-signed variants).
+  * **Harpy signing utility** at `externals/Harpy/Tools/sign.eagle`.
+  * **Eagle library packaged for Tcl** under `externals/Eagle/lib/Eagle1.0/`.
 
-> You don’t need to install external “gpg” binaries to *use* pkgt; signature verification is handled by the client toolset and its libraries. See `doc/v1.html` for the full reference. ([GitHub][4])
+> When using the official Package Client Toolset, Package Repository Server, or Package Downloads Server, you will need to add the Primary Package Signing Key (dated "2003-06-09", with fingerprint "C3C7 5138 83EE DD3A ED1F E425 502C 96AF 495D C2D9") to your local OpenPGP key ring.
 
 ---
 
@@ -130,9 +132,9 @@ Distributing Tcl/Eagle packages has traditionally involved a mix of ad‑hoc ste
 
 4. **Use packages normally**
    With the indices on your path, `package require <name> ?version?` will be
-   satisfied locally **or** resolved via pkgt’s secure repository client (on demand). ([Tcl][2])
+   satisfied locally **or** resolved via pkgt’s secure repository client (on demand).
 
-> Tip: If you prefer to **pre‑install** packages into an application image or cache, run the `pkgr_install.eagle` helper once and ship the resulting package tree with your app. ([GitHub][3])
+> Tip: If you prefer to **pre‑install** packages into an application image or cache, run the `pkgr_install.eagle` helper once and ship the resulting package tree with your app.
 
 ---
 
@@ -169,7 +171,7 @@ Distributing Tcl/Eagle packages has traditionally involved a mix of ad‑hoc ste
    package require MyPkg 1.2
    ```
 
-All of the above entry points (`pkgr_setup.eagle`, `pkgr_install.eagle`) are part of the client `client/1.0/neutral` directory. ([GitHub][3])
+All of the above entry points (`pkgr_setup.eagle`, `pkgr_install.eagle`) are part of the client `client/1.0/neutral` directory.
 
 ---
 
@@ -189,7 +191,7 @@ All of the above entry points (`pkgr_setup.eagle`, `pkgr_install.eagle`) are par
    * **On‑demand**: pkgt can fetch files individually as directed by repository metadata.
    * **Pre‑installable**: you can ship the package directory as a ready‑to‑use tree.
 
-> The pkgt repository server resolves a TIP #268 version constraint, returns a small signed script, and instructs the downloader which files to fetch. All files are OpenPGP‑signed; Eagle files are also Harpy‑signed. ([Tcl][2])
+> The pkgt repository server resolves a TIP #268 version constraint, returns a small signed script, and instructs the downloader which files to fetch. All files are OpenPGP‑signed; Eagle files are also Harpy‑signed.
 
 ### Signing your artifacts
 
@@ -201,9 +203,9 @@ All of the above entry points (`pkgr_setup.eagle`, `pkgr_install.eagle`) are par
   # See 'sign.eagle' usage for signing options.
   ```
 
-  (Tool location: `externals/Harpy/Tools/sign.eagle`.) ([GitHub][3])
+  (Tool location: `externals/Harpy/Tools/sign.eagle`.)
 
-* **OpenPGP (all files)**: ensure each distributed file has an OpenPGP signature the client can verify. (The client will refuse unsigned or invalidly signed files.) ([Tcl][2])
+* **OpenPGP (all files)**: ensure each distributed file has an OpenPGP signature the client can verify. (The client will refuse unsigned or invalidly signed files.)
 
 ### Uploading / publishing
 
@@ -218,25 +220,25 @@ path add [file join $pkgtRoot client 1.0 neutral]
 source [file join $pkgtRoot client 1.0 neutral pkgr_upload.eagle]
 ```
 
-> The repository (metadata) server is managed via a web UI; the file server typically runs on **Fossil** and uses repository users/keys for access. Public and private publishing models are supported. ([Tcl][2])
+> The repository (metadata) server is managed via a web UI; the file server typically runs on **Fossil** and uses repository users/keys for access. Public and private publishing models are supported.
 
 ---
 
 ## How it works (architecture)
 
 * **Repository Client (`pkgr.eagle`)**
-  Locates packages meeting a TIP #268 constraint by talking to the repository service, receives a **signed** resolver script, verifies it, and evaluates it (in Tcl or Eagle as appropriate). ([Tcl][2])
+  Locates packages meeting a TIP #268 constraint by talking to the repository service, receives a **signed** resolver script, verifies it, and evaluates it (in Tcl or Eagle as appropriate).
 
 * **Downloader (`pkgd.eagle`)**
-  Fetches one or more **OpenPGP‑signed** files, verifies signatures, and exposes the package to the interpreter. Optionally persists installed packages to a local cache or application image. ([Tcl][2])
+  Fetches one or more **OpenPGP‑signed** files, verifies signatures, and exposes the package to the interpreter. Optionally persists installed packages to a local cache or application image.
 
 * **Uploads Client (`pkgu.eagle`)**
-  Assists maintainers in pushing new versions to the repository/file server. ([GitHub][3])
+  Assists maintainers in pushing new versions to the repository/file server.
 
 * **Language integration**
-  `pkgIndex.tcl` and `pkgIndex.eagle` provide seamless integration so ordinary `package require` requests trigger the above flow if the package isn’t present locally. Harpy‑signed index variants are provided for Eagle. ([GitHub][3])
+  `pkgIndex.tcl` and `pkgIndex.eagle` provide seamless integration so ordinary `package require` requests trigger the above flow if the package isn’t present locally. Harpy‑signed index variants are provided for Eagle.
 
-A short slide deck from Tcl’16 gives a good overview of this flow and security model. ([Tcl][2])
+A short slide deck from Tcl’16 gives a good overview of this flow and security model.
 
 ---
 
@@ -248,23 +250,23 @@ A short slide deck from Tcl’16 gives a good overview of this flow and security
   * **File server** base URLs.
   * API keys (**read** and **full**) for private/personal repositories.
 
-* **Persisted settings**: setup writes settings that subsequent runs of the client will use automatically (both for on‑demand resolution and pre‑installation). See `doc/v1.html` for parameter names and advanced options. ([GitHub][3])
+* **Persisted settings**: setup writes settings that subsequent runs of the client will use automatically (both for on‑demand resolution and pre‑installation). See `doc/v1.html` for parameter names and advanced options.
 
 ---
 
 ## FAQ
 
 **Q. Does this replace `pkgIndex.tcl`?**
-A. No. pkgt **uses** normal package metadata; it just enables secure **remote** resolution and delivery when a required package is not available locally. ([Tcl][2])
+A. No. pkgt **uses** normal package metadata; it just enables secure **remote** resolution and delivery when a required package is not available locally.
 
 **Q. How are Eagle scripts treated differently?**
-A. They carry **two** signatures: OpenPGP (like all files) and **Harpy** (Eagle‑specific). Both must validate before the package is exposed to the interpreter. ([Tcl][2])
+A. They carry **two** signatures: OpenPGP (like all files) and **Harpy** (Eagle‑specific). Both must validate before the package is exposed to the interpreter.
 
 **Q. Can I keep some packages private?**
-A. Yes. Repository access uses API keys; file serving can be on a private Fossil instance. Public/private mixes are supported. ([Tcl][2])
+A. Yes. Repository access uses API keys; file serving can be on a private Fossil instance. Public/private mixes are supported.
 
 **Q. What version of the pkgt client is this?**
-A. See `client/1.0/neutral/VERSION` (currently **1.0.10**). ([GitHub][3])
+A. See `client/1.0/neutral/VERSION` (currently **1.0.10**).
 
 ---
 
@@ -272,22 +274,22 @@ A. See `client/1.0/neutral/VERSION` (currently **1.0.10**). ([GitHub][3])
 
 * Open issues and PRs are welcome.
 * Please test on both **Tcl** and **Eagle** when touching shared client code (`client/1.0/neutral/`).
-* Keep security guarantees intact: never merge changes that weaken signature checks or disable verification by default. (Harpy and OpenPGP verification are core to pkgt.) ([Tcl][2])
+* Keep security guarantees intact: never merge changes that weaken signature checks or disable verification by default. (Harpy and OpenPGP verification are core to pkgt.)
 
 ---
 
 ## License
 
-This project is available under the **BSD 3‑Clause** license. See [LICENSE](./LICENSE). ([GitHub][1])
+This project is available under the **BSD 3‑Clause** license. See [LICENSE](./LICENSE).
 
 ---
 
 ### References & further reading
 
-* **Repo overview & purpose**: *“securely obtain and use packages for both Tcl and Eagle”* — GitHub repo description. ([GitHub][1])
-* **Initial import & file layout** (client libraries, indices, tools, externals, docs). ([GitHub][3])
-* **Version file** (`client/1.0/neutral/VERSION`: 1.0.10). ([GitHub][3])
-* **Security & architecture slides** (Tcl’16 talk: Package Repository Client & Server). ([Tcl][2])
+* **Repo overview & purpose**: *“securely obtain and use packages for both Tcl and Eagle”* — GitHub repo description.
+* **Initial import & file layout** (client libraries, indices, tools, externals, docs).
+* **Version file** (`client/1.0/neutral/VERSION`: 1.0.10).
+* **Security & architecture slides** (Tcl’16 talk: Package Repository Client & Server).
 
 ---
 
