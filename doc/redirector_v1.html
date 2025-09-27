@@ -1,0 +1,680 @@
+<div class="fossil-doc" data-title="URN Server API v1"><br>
+
+<big><big><span style="font-family: monospace;">Generated [2024-07-19 @ 22:45:55 UTC] from checkout [73bc68921b84696364b052de4e9c43d341efae9d 2024-07-19 22:42:16 UTC]</span></big></big><br><br><hr><br>
+
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=27">hasPerms</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;name&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This TH1 procedure returns non-zero if the logged-in user has the<br>
+specified named permission -OR- the server has been configured in<br>
+such a way to permit anybody to have it, e.g. any user may lookup<br>
+packages.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=124">emitFormStart</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;name&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;title&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This TH1 procedure emits the necessary HTML to start a &lt;FORM&gt; element<br>
+suitable for use with Fossil and optionally having a title to be used<br>
+as header text.  The name must not contain any characters reserved in<br>
+HTML; however, the title will be properly escaped.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=141">emitHidden</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;name&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This TH1 procedure emits the necessary HTML for a hidden form element<br>
+that has a name and value.  The name must not contain any characters<br>
+reserved in HTML; however, the value will be properly escaped.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=151">emitTextBox</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;name&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;size&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This TH1 procedure emits the necessary HTML for a text box form element<br>
+that has a name, value, and size.  The name and size must not contain<br>
+any characters reserved in HTML; however, the value will be properly<br>
+escaped.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=161">emitTextArea</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;name&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;rows&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;columns&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This TH1 procedure emits the necessary HTML for a text area form<br>
+element that has a name, value, rows, and columns.  The name, rows,<br>
+and columns must not contain any characters reserved in HTML; however,<br>
+the value will be properly escaped.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=171">emitCheckBox</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;name&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This TH1 procedure emits the necessary HTML for a check box form<br>
+element that has a name and value.  The name must not contain any<br>
+characters reserved in HTML; however, the value will be properly<br>
+escaped.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=187">emitSubmitButton</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;name&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This TH1 procedure emits the necessary HTML for a submit button form<br>
+element that has a name and value.  The name must not contain any<br>
+characters reserved in HTML; however, the value will be properly<br>
+escaped.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=195">emitFormEnd</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This TH1 procedure emits the necessary HTML to end a &lt;FORM&gt; element<br>
+suitable for use with Fossil.  There are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=205">sql_function_regexp</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument list &quot;args&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure is used to implement a SQL function for SQLite.<br>
+It implements the REGEXP function (and its associated operator) by<br>
+using the Tcl [regexp] command.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=216">isValidApiKey</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;writing&quot; with default value &quot;false&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;emptyOk&quot; with default value &quot;false&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns non-zero if the specified string value is<br>
+a valid API key.  An API key has no relationship to a Fossil check-in<br>
+hash, even though it may look like one.  The emptyOk argument can be<br>
+non-zero if the caller wishes to permit an empty string.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=237">isValidOwnerName</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;emptyOk&quot; with default value &quot;false&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns non-zero if the specified string value is<br>
+suitable for use as an owner (entity) name.  Only the Latin alphabet<br>
+and the space character are allowed.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=251">isValidMessage</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;emptyOk&quot; with default value &quot;false&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns non-zero if the specified string value is<br>
+a valid (log) message.  It must be valid Base64 data and the encoded<br>
+length is limited to 256K.  Therefore, the unencoded length limit is<br>
+about 192K.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=285">isValidScriptName</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;emptyOk&quot; with default value &quot;false&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns non-zero if the specified string value is<br>
+a valid script name.  The emptyOk argument can be non-zero if the<br>
+caller wishes to permit an empty string.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=298">isValidGuid</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;emptyOk&quot; with default value &quot;false&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns non-zero if the specified string value<br>
+is a valid GUID string.  The emptyOk argument can be non-zero if<br>
+the caller wishes to permit an empty string.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=314">isValidHash</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;emptyOk&quot; with default value &quot;false&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns non-zero if the specified string value is<br>
+a valid SHA1 hash.  This has no relationship to a Fossil check-in<br>
+hash, even though it may look like one.  The emptyOk argument can be<br>
+non-zero if the caller wishes to permit an empty string.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=327">verifyMessageAgainstHash</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;hmacKey&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;message&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;hash&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns non-zero if the specified message string,<br>
+which must be Base64 encoded, validates based on the specified HMAC<br>
+key and hash.  This procedure does not raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=357">appendLogFile</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;data&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure appends binary data to the specified log file.  No<br>
+trailing new line is emitted.  The log file may be created if needed.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=369">hasOnlyNormalChars</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure attempts to determine if the specified string has<br>
+only web-printable ASCII characters.  Non-zero will be returned if<br>
+that is the case.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=382">htmlize</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument list &quot;args&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure (which uses a Fossil TH1 command) returns the HTML<br>
+escaped version of the specified string value.  If TH1 integration is<br>
+not available for any reason, a script error will be raised.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=403">httpize</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument list &quot;args&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure (which uses a Fossil TH1 command) returns the HTTP<br>
+escaped version of the specified string value.  If TH1 integration is<br>
+not available for any reason, a script error will be raised.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=420">getTablePreHeader</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;title&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure (which uses a Fossil TH1 command) returns the HTML<br>
+necessary for some header text to accompany a table containing data.<br>
+The title will be HTML escaped.  If TH1 integration is not available<br>
+for any reason, a script error will be raised.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=453">emitLink</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;href&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns the HTML necessary for a link to another<br>
+(arbitrary) page.  The href argument must be a properly formed URI<br>
+and must not contain any characters reserved in HTML; however, the<br>
+value will be properly escaped.  The value will be used as the text<br>
+for the link.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=464">emitBoldLink</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;href&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns the HTML necessary for a link to another<br>
+(arbitrary) page.  The href argument must be a properly formed URI<br>
+and must not contain any characters reserved in HTML; however, the<br>
+value will be properly escaped.  The value will be used as the text<br>
+for the link -AND- it will have bold styling.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=475">emitCodeLink</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;code&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns the HTML necessary for a link to another<br>
+page within the Fossil repository.  The code argument must be a URN<br>
+name and must not contain any characters reserved in HTML; however,<br>
+the value will be properly escaped.  The value will be used as the<br>
+text for the link.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=493">emitFormLink</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;name&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;extra&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns the HTML necessary for a link to another<br>
+documentation page within the Fossil repository.  It is hard-coded<br>
+to the latest trunk check-in.  The name argument must be the name<br>
+of an existing wiki, markdown, or TH1 page and must not contain any<br>
+characters reserved in HTML; however, the value will be properly<br>
+escaped.  The extra argument is designed to facilitate inclusion of<br>
+arbitrary query parameters.  It should be an empty string if query<br>
+parameters are not required.  The value will be used as the text for<br>
+the link.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl&amp;ln=511">emitFormBoldLink</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;name&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;extra&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns the HTML necessary for a link to another<br>
+documentation page within the Fossil repository.  It is hard-coded<br>
+to the latest trunk check-in.  The name argument must be the name<br>
+of an existing wiki, markdown, or TH1 page and must not contain any<br>
+characters reserved in HTML; however, the value will be properly<br>
+escaped.  The extra argument is designed to facilitate inclusion of<br>
+arbitrary query parameters.  It should be an empty string if query<br>
+parameters are not required.  The value will be used as the text for<br>
+the link -AND- it will have bold styling.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/log.tcl&amp;ln=39">setupLogGlobals</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/log.tcl">log.tcl</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This TH1 procedure initializes the global variables used by this script<br>
+file.  There are no arguments.  It must not raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/log.tcl&amp;ln=50">getLogDb</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/log.tcl">log.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;varName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns a fully qualified path and file name for<br>
+the database of log messages.  There are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/log.tcl&amp;ln=101">openAndSetupLogDb</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/log.tcl">log.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;cmdName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;readOnly&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;functions&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure attempts to open the database of log messages<br>
+and enable the options it needs, e.g. via PRAGMA, etc.  The custom<br>
+function is registered when the functions argument is non-zero.<br>
+The readOnly argument should be non-zero to prevent writes to the<br>
+database.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/log.tcl&amp;ln=130">getLogKeyIdFromApiKey</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/log.tcl">log.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;apiKey&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure attempts to obtain an Id based on an API key.<br>
+Another connection to the database of variable names and values<br>
+will be opened and closed by this procedure, even if one is already<br>
+open.  An empty string will be returned if the API key is not found;<br>
+otherwise, a non-empty string will be returned, which will be the<br>
+integer identifier associated with the API key.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/log.tcl&amp;ln=159">getIdAndHmacKeyFromApiKey</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/log.tcl">log.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;apiKey&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure attempts to obtain an Id and HMAC key based on<br>
+an API key.  Another connection to the database of variable names<br>
+and values will be opened and closed by this procedure, even if<br>
+one is already open.  An empty list will be returned if the API<br>
+key is not found; otherwise, a two element list will be returned,<br>
+where the first element is the integer identifier associated with<br>
+the API key and the second element is the HMAC key associated with<br>
+the API key.  This is shared by the &quot;log.tcl&quot; and &quot;var.tcl&quot; files.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/log.tcl&amp;ln=183">formatElapsed</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/log.tcl">log.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;seconds&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;ago&quot; with default value &quot;&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure attempts to convert the specified number of<br>
+seconds into a reasonable, easy-to-read string, approximately<br>
+representing its duration.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/log.tcl&amp;ln=246">maybeCreateLogWhereClause</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/log.tcl">log.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;type&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;reviewed&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;whereClauseVarName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;whereTextVarName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument list &quot;args&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure attempts to create a WHERE clause for the log<br>
+table of the database, based on a list of search terms filtered<br>
+by using equality and/or LIKE operators.  If the list of search<br>
+terms is empty, there will be an empty WHERE clause.  The return<br>
+value of this procedure is undefined.  In terms of tables, only<br>
+the &quot;log&quot; table is actually referenced by this procedure; however,<br>
+that being said, callers are (obviously?) may include other tables<br>
+in their final SQL query.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/password.tcl&amp;ln=40">setupPasswordGlobals</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/password.tcl">password.tcl</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This TH1 procedure initializes the global variables used by this script<br>
+file.  There are no arguments.  If Tcl integration is not available for<br>
+any reason, a script error will be raised.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/password.tcl&amp;ln=49">getPasswordDb</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/password.tcl">password.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;varName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns a fully qualified path and file name for<br>
+the database of passwords.  There are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/password.tcl&amp;ln=98">openAndSetupPasswordDb</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/password.tcl">password.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;cmdName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;readOnly&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure attempts to open the database of passwords and<br>
+enable the options it needs, e.g. via PRAGMA, etc.  The readOnly<br>
+argument should be non-zero to prevent writes to the database.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/secret.tcl&amp;ln=40">setupSecretGlobals</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/secret.tcl">secret.tcl</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This TH1 procedure initializes the global variables used by this script<br>
+file.  There are no arguments.  If Tcl integration is not available for<br>
+any reason, a script error will be raised.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/secret.tcl&amp;ln=49">getSecretDb</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/secret.tcl">secret.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;varName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns a fully qualified path and file name for<br>
+the database of secrets.  There are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/secret.tcl&amp;ln=98">openAndSetupSecretDb</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/secret.tcl">secret.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;cmdName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;readOnly&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure attempts to open the database of secrets and<br>
+enable the options it needs, e.g. via PRAGMA, etc.  The readOnly<br>
+argument should be non-zero to prevent writes to the database.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/secret.tcl&amp;ln=123">getSecretKeyIdFromApiKey</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/secret.tcl">secret.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;apiKey&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;readOnly&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure attempts to obtain an Id based on an API key.<br>
+Another connection to the database of variable names and values<br>
+will be opened and closed by this procedure, even if one is already<br>
+open.  An empty string will be returned if the API key is not found;<br>
+otherwise, a non-empty string will be returned, which will be the<br>
+integer identifier associated with the API key.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/time.tcl&amp;ln=39">setupTimeGlobals</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/time.tcl">time.tcl</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This TH1 procedure initializes the global variables used by this script<br>
+file.  There are no arguments.  It must not raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/time.tcl&amp;ln=53">getTimeInUtc</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/time.tcl">time.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;raw&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns the current time (as UTC) as a formatted<br>
+value -OR- as a raw number of (wide integer) milliseconds since the<br>
+Unix epoch.  The raw argument can be non-zero if the caller wishes<br>
+to obtain the raw number of (wide integer) milliseconds since the<br>
+Unix epoch.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/urn.tcl&amp;ln=50">setupUrnGlobals</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/urn.tcl">urn.tcl</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This TH1 procedure initializes the global variables used by this script<br>
+file.  There are no arguments.  If Tcl integration is not available for<br>
+any reason, a script error will be raised.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/urn.tcl&amp;ln=84">getUrnDb</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/urn.tcl">urn.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;varName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns a fully qualified path and file name for<br>
+the database of URNs.  There are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/urn.tcl&amp;ln=133">openAndSetupUrnDb</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/urn.tcl">urn.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;cmdName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;readOnly&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;functions&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure attempts to open the database of URNs and enable<br>
+the options it needs, e.g. via PRAGMA, etc.  The readOnly argument<br>
+should be non-zero to prevent writes to the database.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/urn.tcl&amp;ln=164">hasFallbackCodePrefix</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/urn.tcl">urn.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;code&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;prefixVarName&quot; with default value &quot;&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;codeVarName&quot; with default value &quot;&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure checks if the specified URN code has a prefix<br>
+that looks like a fallback.  In that case, extract the server and<br>
+link identifiers from the code argument and modify the specified<br>
+variable names, from the prefixVarName and codeVarName arguments,<br>
+in the context of the caller to contain the server identifier and<br>
+link identifier, respectively.  A non-zero value will be returned<br>
+if the fallback detection was successful.  This procedure should<br>
+not raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/urn.tcl&amp;ln=204">getFallbackUri</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/urn.tcl">urn.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;prefix&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;code&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure formats a URI, using the fallback prefix and code<br>
+values obtained from the [hasFallbackCodePrefix] procedure.  This<br>
+procedure cannot really fail and should not raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/urn.tcl&amp;ln=218">hasVariableCodePrefix</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/urn.tcl">urn.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;code&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;varName&quot; with default value &quot;&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure checks if the specified URN code has a prefix<br>
+that looks like a network variable reference.  In that case, extract<br>
+the name of the referenced network variable from the code argument<br>
+and modify the specified variable name, from the varName argument, in<br>
+the context of the caller to contain the name of the referenced<br>
+network variable.  A non-zero value will be returned if the network<br>
+variable name detection was successful.  This procedure should not<br>
+raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/var.tcl&amp;ln=39">setupVarGlobals</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/var.tcl">var.tcl</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This TH1 procedure initializes the global variables used by this script<br>
+file.  There are no arguments.  It must not raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/var.tcl&amp;ln=50">getVarDb</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/var.tcl">var.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;varName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure returns a fully qualified path and file name for<br>
+the database of variable names and values.  There are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/var.tcl&amp;ln=100">openAndSetupVarDb</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=tcl/var.tcl">var.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;cmdName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;readOnly&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This Tcl procedure attempts to open the database of variable names<br>
+and values and enable the options it needs, e.g. via PRAGMA, etc.<br>
+The readOnly argument should be non-zero to prevent writes to the<br>
+database.<br>
+</blockquote><br><hr><br>
+</div>

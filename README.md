@@ -281,16 +281,3 @@ A. See `client/1.0/neutral/VERSION` (currently **1.0.10**).
 ## License
 
 This project is available under the **BSD 3‑Clause** license. See [LICENSE](./LICENSE).
-
----
-
-### References & further reading
-
-* **Repo overview & purpose**: *“securely obtain and use packages for both Tcl and Eagle”* — GitHub repo description.
-* **Initial import & file layout** (client libraries, indices, tools, externals, docs).
-* **Version file** (`client/1.0/neutral/VERSION`: 1.0.10).
-* **Security & architecture slides** (Tcl’16 talk: Package Repository Client & Server).
-
----
-
-> *Maintainers:* if you’d like, I can also add a minimal **Makefile** (or simple `tclsh`/`Eagle` scripts) to automate `setup → install → smoke-test` locally using the helper entry points above.
