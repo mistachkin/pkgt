@@ -188,7 +188,7 @@ All of the above entry points (`pkgr_setup.eagle`, `pkgr_install.eagle`) are par
    * Provide a `pkgIndex.tcl` and/or `pkgIndex.eagle` that does `package provide <name> <version>`.
    * Organize your files under a single directory named after your package.
 
-2. **Test locally**: ensure `package require <name> <version>` works from a clean interpreter when your package directory is on `auto_path` (Tcl) or `path` (Eagle).
+2. **Test locally**: ensure `package require <name> <version>` works from a clean interpreter when your package directory is on `auto_path`.
 
 3. **Decide distribution mode**:
 
