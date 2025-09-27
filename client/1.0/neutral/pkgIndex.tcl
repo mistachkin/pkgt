@@ -17,13 +17,13 @@
 if {![package vsatisfies [package provide Tcl] 8.4]} {return}
 if {[string length [package provide Eagle]] > 0} then {return}
 
-package ifneeded Eagle.Package.Repository 1.0.10 \
+package ifneeded Eagle.Package.Repository 1.0.11 \
     [list source [file join $dir pkgr.eagle]]
 
-package ifneeded Eagle.Package.Downloader 1.0.10 \
+package ifneeded Eagle.Package.Downloader 1.0.11 \
     [list source [file join $dir pkgd.eagle]]
 
-package ifneeded Eagle.Package.Uploader 1.0.10 \
+package ifneeded Eagle.Package.Uploader 1.0.11 \
     [list source [file join $dir pkgu.eagle]]
 
 package ifneeded Eagle.Tools.Common 1.0 \

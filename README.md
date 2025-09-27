@@ -44,7 +44,7 @@ Distributing Tcl/Eagle packages has traditionally involved a mix of ad‑hoc ste
 ```
 .
 ├─ client/1.0/neutral/
-│  ├─ VERSION               # current toolset version (e.g., 1.0.10)
+│  ├─ VERSION               # current toolset version (e.g., 1.0.11)
 │  ├─ common.tcl            # shared Tcl helpers
 │  ├─ pkgIndex.tcl          # Tcl-side integration
 │  ├─ pkgIndex.eagle        # Eagle-side integration (Harpy-signed variants included)
@@ -65,7 +65,7 @@ Distributing Tcl/Eagle packages has traditionally involved a mix of ad‑hoc ste
    └─ v1.html               # v1 toolset documentation (reference)
 ```
 
-> File names and layout above come from the initial import. See the commit tree for the authoritative list. The current version is **1.0.10**.
+> File names and layout above come from the initial import. See the commit tree for the authoritative list. The current version is **1.0.11**.
 
 ---
 
@@ -266,7 +266,7 @@ A. They carry **two** signatures: OpenPGP (like all files) and **Harpy** (Eagle�
 A. Yes. Repository access uses API keys; file serving can be on a private Fossil instance. Public/private mixes are supported.
 
 **Q. What version of the pkgt client is this?**
-A. See `client/1.0/neutral/VERSION` (currently **1.0.10**).
+A. See `client/1.0/neutral/VERSION` (currently **1.0.11**).
 
 ---
 

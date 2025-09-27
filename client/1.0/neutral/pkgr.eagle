@@ -2763,6 +2763,6 @@ namespace eval ::PackageRepository {
   #
   # NOTE: Provide the package to the interpreter.
   #
-  package provide Eagle.Package.Repository 1.0.10
+  package provide Eagle.Package.Repository 1.0.11
 }
 

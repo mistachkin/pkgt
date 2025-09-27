@@ -2382,6 +2382,6 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #
   # NOTE: Provide the package to the interpreter.
   #
-  package provide Eagle.Package.Downloader 1.0.10
+  package provide Eagle.Package.Downloader 1.0.11
 }
 
