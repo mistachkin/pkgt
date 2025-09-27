@@ -85,7 +85,7 @@ Distributing Tcl/Eagle packages has traditionally involved a mix of ad‑hoc ste
 
 ## Supported runtimes & prerequisites
 
-* **Tcl**: Standard Tcl (8.5+) environments.
+* **Tcl**: Standard Tcl (8.4+) environments, which must include the `tcltls` package.
 * **Eagle**: Any environment that can run Eagle scripts.
 * **Platforms**: Windows, Linux, macOS (no OS‑specific assumptions in the client libraries).
 * **OpenPGP**: An implementation of the OpenPGP standard (e.g. GPG).
