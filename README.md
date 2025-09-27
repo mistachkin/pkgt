@@ -44,27 +44,27 @@ Distributing Tcl/Eagle packages has traditionally involved a mix of ad‑hoc ste
 ```
 .
 ├─ client/1.0/neutral/
-│  ├─ VERSION               # current toolset version (e.g., 1.0.11)
-│  ├─ common.tcl            # shared Tcl helpers
-│  ├─ pkgIndex.tcl          # Tcl-side integration
-│  ├─ pkgIndex.eagle        # Eagle-side integration (Harpy-signed variants included)
-│  ├─ pkgd.eagle            # package downloader library (client side)
-│  ├─ pkgr.eagle            # package repository client library
-│  ├─ pkgu.eagle            # package uploads client library
-│  ├─ pkgr_setup.eagle      # setup/configure repositories & keys
-│  ├─ pkgr_install.eagle    # install/persist packages locally
-│  └─ pkgr_upload.eagle     # upload/publish packages (maintainers)
+│  ├─ VERSION                 # current toolset version (e.g., 1.0.11)
+│  ├─ common.tcl              # shared Tcl helpers
+│  ├─ pkgIndex.tcl            # Tcl-side integration
+│  ├─ pkgIndex.eagle          # Eagle-side integration (Harpy-signed variants included)
+│  ├─ pkgd.eagle              # package downloader library (client side)
+│  ├─ pkgr.eagle              # package repository client library
+│  ├─ pkgu.eagle              # package uploads client library
+│  ├─ pkgr_setup.eagle        # setup/configure repositories & keys
+│  ├─ pkgr_install.eagle      # install/persist packages locally
+│  └─ pkgr_upload.eagle       # upload/publish packages (maintainers)
 ├─ externals/
-│  ├─ Eagle/lib/Eagle1.0/   # Eagle library packaged for Tcl
-│  └─ Harpy/Tools/sign.eagle# Harpy code-sign tooling
+│  ├─ Eagle/lib/Eagle1.0/     # Eagle library packaged for Tcl
+│  └─ Harpy/Tools/sign.eagle  # Harpy code-sign tooling
 ├─ tools/
 │  ├─ deploy.bat
 │  ├─ pkgr_an_d_get.sh
-│  └─ pkgr_an_d_install.sh  # helper scripts to fetch/install the client
+│  └─ pkgr_an_d_install.sh    # helper scripts to fetch/install the client
 └─ doc/
-   ├─ redirector_v1.html    # URN/URL redirector server documentation (reference)
-   ├─ repository_v1.html    # package metadata server documentation (reference)
-   └─ toolset_v1.html       # package client toolset documentation (reference)
+   ├─ redirector_v1.html      # URN/URL redirector server documentation (reference)
+   ├─ repository_v1.html      # package metadata server documentation (reference)
+   └─ toolset_v1.html         # package client toolset documentation (reference)
 ```
 
 > File names and layout above come from the initial import(s). See the commit tree for the authoritative list. The current version is **1.0.11**.
