@@ -1,0 +1,2387 @@
+###############################################################################
+#
+# pkgd.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Package Downloader Client
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::PackageDownloader {
+  #
+  # NOTE: This procedure emits a message to the package downloader client
+  #       log.  The string argument is the content of the message to emit.
+  #
+  proc pkgLog { string } {
+    catch {
+      tclLog [appendArgs [pid] " : " [clock seconds] " : pkgd : " $string]
+    }
+  }
+
+  #
+  # NOTE: This procedure sets up the default values for all URN configuration
+  #       parameters used by the package downloader client.  If the force
+  #       argument is non-zero, any existing values will be overwritten and
+  #       set back to their default values.
+  #
+  proc setupDownloadServerVars { force } {
+    #
+    # NOTE: The URN, relative to the base URI, where the Package Signing Keys
+    #       may be downloaded.
+    #
+    variable openPgpKeyUrn; # DEFAULT: pkg_keys
+
+    if {$force || ![info exists openPgpKeyUrn]} then {
+      set openPgpKeyUrn pkg_keys
+    }
+
+    #
+    # NOTE: The fallback URN, relative to the base URI, where the Package
+    #       Signing Keys may be downloaded.  This should only be used when
+    #       the primary URN did not produce valid data.
+    #
+    variable openPgpKeyUrnFallback1; # DEFAULT: pkg_keys_mirror_1
+
+    if {$force || ![info exists openPgpKeyUrnFallback1]} then {
+      set openPgpKeyUrnFallback1 pkg_keys_mirror_1
+    }
+
+    #
+    # NOTE: The URN, relative to the base URI, where a login request may
+    #       be sent.
+    #
+    variable loginUrn; # DEFAULT: pkgd_login
+
+    if {$force || ![info exists loginUrn]} then {
+      set loginUrn pkgd_login
+    }
+
+    #
+    # NOTE: The URN, relative to the base URI, where the list of supported
+    #       platforms for a single package may be found.
+    #
+    variable platformsUrn; # DEFAULT: pkgd_platforms
+
+    if {$force || ![info exists platformsUrn]} then {
+      set platformsUrn pkgd_platforms
+    }
+
+    #
+    # NOTE: The URN, relative to the base URI, where a single package file
+    #       may be found.
+    #
+    variable downloadUrn; # DEFAULT: pkgd_file
+
+    if {$force || ![info exists downloadUrn]} then {
+      set downloadUrn pkgd_file
+    }
+
+    #
+    # NOTE: The URN, relative to the base URI, where a logout request may
+    #       be sent.
+    #
+    variable logoutUrn; # DEFAULT: pkgd_logout
+
+    if {$force || ![info exists logoutUrn]} then {
+      set logoutUrn pkgd_logout
+    }
+  }
+
+  #
+  # NOTE: This procedure sets up the default values for all version
+  #       configuration parameters used by the package downloader client.
+  #       If the force argument is non-zero, any existing values will be
+  #       overwritten and set back to their default values.
+  #
+  proc setupDownloadVersionVars { force } {
+    #
+    # NOTE: The name of the branch where the package files should be fetched
+    #       from.
+    #
+    variable branchName; # DEFAULT: trunk
+
+    if {$force || ![info exists branchName]} then {
+      set branchName trunk
+    }
+  }
+
+  #
+  # NOTE: This procedure sets up the default values for all URI configuration
+  #       parameters used by the package downloader client.  If the force
+  #       argument is non-zero, any existing values will be overwritten and
+  #       set back to their default values.
+  #
+  proc setupDownloadUriVars { force } {
+    #
+    # NOTE: The base URI used to build the URIs for the package file server.
+    #
+    variable baseUri; # DEFAULT: https://tcl.to/r
+
+    if {$force || ![info exists baseUri]} then {
+      set baseUri https://tcl.to/r
+    }
+
+    #
+    # NOTE: The URI where the Package Signing Keys may be downloaded.  This
+    #       should return a payload containing the OpenPGP key data.
+    #
+    variable openPgpKeyUri; # DEFAULT: ${baseUri}/${openPgpKeyUrn}
+
+    if {$force || ![info exists openPgpKeyUri]} then {
+      set openPgpKeyUri {${baseUri}/${openPgpKeyUrn}}
+    }
+
+    #
+    # NOTE: The fallback URI where the Package Signing Keys may be
+    #       downloaded.  This should return a payload containing the OpenPGP
+    #       key data.  This should only be used when the primary URN did not
+    #       produce valid OpenPGP key data.
+    #
+    variable openPgpKeyUriFallback; # DEFAULT: .../${openPgpKeyUrnFallback1}
+
+    if {$force || ![info exists openPgpKeyUriFallback]} then {
+      set openPgpKeyUriFallback {${baseUri}/${openPgpKeyUrnFallback1}}
+    }
+
+    #
+    # NOTE: The URI where a login request may be sent.  This should return a
+    #       payload containing the necessary HTTP(S) cookie information.
+    #
+    variable loginUri; # DEFAULT: ${baseUri}/${loginUrn}?...
+
+    if {$force || ![info exists loginUri]} then {
+      set loginUri [appendArgs \
+          {${baseUri}/${loginUrn}?} {[uriEscape name $userName]} & \
+          {[uriEscape password $password]}]
+    }
+
+    #
+    # NOTE: The URI where the list of supported platforms for a single
+    #       package may be found.
+    #
+    variable platformsUri; # DEFAULT: ${baseUri}/${platformsUrn}?...
+
+    if {$force || ![info exists platformsUri]} then {
+      set platformsUri {${baseUri}/${platformsUrn}?download&name=${branchName}}
+    }
+
+    #
+    # NOTE: The URI where a single package file may be found.  This file will
+    #       belong to a specific version of one package.
+    #
+    variable downloadUri; # DEFAULT: ${baseUri}/${downloadUrn}?...
+
+    if {$force || ![info exists downloadUri]} then {
+      set downloadUri [appendArgs \
+          {${baseUri}/${downloadUrn}?download&ci=${branchName}&} \
+          {[uriEscape filename $fileName]}]
+    }
+
+    #
+    # NOTE: The URI where a logout request should be sent.  This should
+    #       return a payload indicating that the logout was successful.
+    #
+    variable logoutUri; # DEFAULT: ${baseUri}/${logoutUrn}?...
+
+    if {$force || ![info exists logoutUri]} then {
+      set logoutUri [appendArgs \
+          {${baseUri}/${logoutUrn}?} {[uriEscape authToken $authToken]}]
+    }
+  }
+
+  #
+  # NOTE: This procedure sets up the default values for all configuration
+  #       parameters used by the package downloader client.  The script
+  #       argument is the fully qualified path and file name for the script
+  #       being evaluated.
+  #
+  proc setupDownloadVars { script force } {
+    #
+    # NOTE: What is the fully qualified path to the directory containing the
+    #       package downloader client?
+    #
+    variable clientDirectory
+
+    if {$force || ![info exists clientDirectory]} then {
+      set clientDirectory [file normalize [file dirname $script]]
+    }
+
+    #
+    # NOTE: This is the HTTP(S) login cookie to use when downloading files
+    #       from the package file server.
+    #
+    variable loginCookie; # DEFAULT: NONE
+
+    if {$force || ![info exists loginCookie]} then {
+      set loginCookie [list]
+    }
+
+    #
+    # NOTE: Prevent progress messages from being displayed while downloading
+    #       from the repository, etc?  By default, this is enabled.
+    #
+    variable quiet; # DEFAULT: true
+
+    if {$force || ![info exists quiet]} then {
+      set quiet true
+    }
+
+    #
+    # NOTE: Emit diagnostic messages when a new temporary directory name is
+    #       created.
+    #
+    variable verboseTemporaryDirectory; # DEFAULT: false
+
+    if {$force || ![info exists verboseTemporaryDirectory]} then {
+      set verboseTemporaryDirectory false
+    }
+
+    #
+    # NOTE: The user name for the public account on the package file server.
+    #       If this is an empty string, there is no public account.
+    #
+    variable publicUserName; # DEFAULT: public
+
+    if {$force || ![info exists publicUserName]} then {
+      set publicUserName public
+    }
+
+    #
+    # NOTE: The password associated with the public account on the package
+    #       file server.  If this is an empty string, the public account is
+    #       disabled.  This is not considered to be a secret; however, it
+    #       should not be shared with any person or organization that does
+    #       not have access to the package downloader client.
+    #
+    variable publicPassword; # DEFAULT: X+NlF2obS5tQFKIsf/q345/naqVSGD67Cg
+
+    if {$force || ![info exists publicPassword]} then {
+      set publicPassword X+NlF2obS5tQFKIsf/q345/naqVSGD67Cg
+    }
+
+    #
+    # NOTE: The root directory where any persistent packages will be saved.
+    #
+    variable persistentRootDirectory; # DEFAULT: [getPersistentRootDirectory]
+
+    if {$force || ![info exists persistentRootDirectory]} then {
+      set persistentRootDirectory [getPersistentRootDirectory]
+    }
+
+    #
+    # NOTE: The root directory where any temporary packages will be written.
+    #
+    variable temporaryRootDirectory; # DEFAULT: [getFileTempDirectory PKGD_TEMP]
+
+    if {$force || ![info exists temporaryRootDirectory]} then {
+      set temporaryRootDirectory \
+          [::PackageRepository::getFileTempDirectory PKGD_TEMP]
+    }
+
+    #
+    # NOTE: Is this package being run by the package installer tool?  If so,
+    #       all downloaded packages should be automatically persisted to the
+    #       library path.
+    #
+    variable viaInstall; # DEFAULT: false
+
+    if {$force || ![info exists viaInstall]} then {
+      set viaInstall false
+    }
+
+    #
+    # NOTE: This is the name of the executable file used to invoke the
+    #       Mono implementation, possibly without a file extension.
+    #
+    variable monoFileNameOnly; # DEFAULT: <unset>
+
+    if {$force || ![info exists monoFileNameOnly]} then {
+      if {[isWindows]} then {
+        set monoFileNameOnly mono.exe
+      } else {
+        set monoFileNameOnly mono
+      }
+    }
+
+    #
+    # NOTE: The command to use when attempting to verify that Mono and its
+    #       associated runtimes are installed locally.  Generally, this is
+    #       not needed on Windows machines.
+    #
+    variable monoInstalledCommand; # DEFAULT: mono --version
+
+    if {$force || ![info exists monoInstalledCommand]} then {
+      set monoInstalledCommand {{${monoFileNameOnly}} --version}
+    }
+
+    #
+    # NOTE: The regular expression pattern used when attempting to verify
+    #       that Mono and its associated runtimes are installed locally.
+    #       Generally, this is not needed on Windows machines.
+    #
+    variable monoInstalledPattern; # DEFAULT: ^Mono JIT compiler version \d+\.
+
+    if {$force || ![info exists monoInstalledPattern]} then {
+      set monoInstalledPattern {^Mono JIT compiler version \d+\.}
+    }
+
+    #
+    # NOTE: This is the name of the executable file used to invoke the
+    #       .NET Core implementation, possibly without a file extension.
+    #
+    variable dotnetFileNameOnly; # DEFAULT: <unset>
+
+    if {$force || ![info exists dotnetFileNameOnly]} then {
+      if {[isWindows]} then {
+        set dotnetFileNameOnly dotnet.exe
+      } else {
+        set dotnetFileNameOnly dotnet
+      }
+    }
+
+    #
+    # NOTE: The command to use when attempting to verify that .NET Core and
+    #       its associated runtimes are installed locally.  Generally, this
+    #       is not needed on Windows machines.
+    #
+    variable dotnetInstalledCommand; # DEFAULT: dotnet --version
+
+    if {$force || ![info exists dotnetInstalledCommand]} then {
+      set dotnetInstalledCommand {{${dotnetFileNameOnly}} --version}
+    }
+
+    #
+    # NOTE: The regular expression pattern used when attempting to verify
+    #       that .NET Core and its associated runtimes are installed locally.
+    #       Generally, this is not needed on Windows machines.
+    #
+    variable dotnetInstalledPattern; # DEFAULT: ^\d+\.\d+(?:\.\d+)*$
+
+    if {$force || ![info exists dotnetInstalledPattern]} then {
+      set dotnetInstalledPattern {^\d+\.\d+(?:\.\d+)*$}
+    }
+  }
+
+  #
+  # NOTE: This procedure modifies the URN variables used by the package
+  #       downloader client so that one or more alternative (private?)
+  #       backend file servers may be used.  The serverId argument must
+  #       consist only of alphanumeric characters and it must begin with
+  #       a letter.
+  #
+  # <public>
+  proc useServerId { {serverId ""} } {
+    variable downloadUrn
+    variable loginUrn
+    variable logoutUrn
+    variable openPgpKeyUrn
+    variable openPgpKeyUrnFallback1
+    variable platformsUrn
+
+    ::PackageRepository::verifyServerId $serverId
+
+    if {[string length $serverId] > 0} then {
+      #
+      # NOTE: Reset the URN variables to values that should cause
+      #       the specified server Id to be used (assume the server
+      #       Id itself is valid and active).
+      #
+      # HACK: These prefixes are hard-coded and must be manually kept
+      #       synchronized with those in the setupDownloadServerVars
+      #       procedure.
+      #
+      set downloadUrn [appendArgs pkgd_file_ $serverId]
+      set loginUrn [appendArgs pkgd_login_ $serverId]
+      set logoutUrn [appendArgs pkgd_logout_ $serverId]
+      set openPgpKeyUrn [appendArgs pkg_keys_ $serverId]
+      set openPgpKeyUrnFallback1 [appendArgs pkg_keys_mirror_1_ $serverId]
+      set platformsUrn [appendArgs pkgd_platforms_ $serverId]
+    } else {
+      #
+      # NOTE: Forcibly reset URN variables to their default values.
+      #
+      setupDownloadServerVars true
+    }
+  }
+
+  #
+  # NOTE: This procedure modifies the version variables used by the package
+  #       downloader client so that a specific version will be used.  The
+  #       versionId argument must consist only of hexadecimal characters.
+  #
+  # <public>
+  proc useVersionId { {versionId ""} } {
+    variable branchName
+
+    verifyVersionId $versionId
+
+    if {[string length $versionId] > 0} then {
+      #
+      # NOTE: Set the variables to values that should cause the specified
+      #       version Id to be used (assume the version Id itself is valid
+      #       and active).
+      #
+      set branchName $versionId; # TODO: Translations here?
+    } else {
+      #
+      # NOTE: Forcibly reset the variables to their default values.
+      #
+      setupDownloadVersionVars true
+    }
+  }
+
+  #
+  # NOTE: This procedure escapes a single name/value pair for use in a URI
+  #       query string.  The name argument is the name of the parameter.
+  #       The value argument is the value of the parameter.
+  #
+  proc uriEscape { name value } {
+    if {[isEagle]} then {
+      return [appendArgs \
+          [uri escape data $name] = [uri escape data $value]]
+    } else {
+      package require http 2.0
+
+      return [::http::formatQuery $name $value]
+    }
+  }
+
+  #
+  # NOTE: This procedure returns the root directory where any packages that
+  #       are downloaded should be saved to permanent storage for subsequent
+  #       use.  There are no arguments.
+  #
+  proc getPersistentRootDirectory {} {
+    global env
+
+    #
+    # NOTE: Allow the persistent root directory to be overridden via the
+    #       environment.  Typically, this customization will only be needed
+    #       if multiple instances of Tcl need to share packages.
+    #
+    if {[info exists env(PKGD_ROOT)]} then {
+      return $env(PKGD_ROOT)
+    }
+
+    #
+    # NOTE: Fallback to returning a directory parallel to the one containing
+    #       the library directory.
+    #
+    return [file join [file dirname [info library]] pkgd]
+  }
+
+  #
+  # NOTE: This procedure checks the configured persistent root directory for
+  #       downloaded packages.  If any checks fail, a script error is raised.
+  #       There are no arguments.  The return value is undefined.
+  #
+  proc verifyPersistentRootDirectory {} {
+    variable persistentRootDirectory
+
+    if {![info exists persistentRootDirectory]} then {
+      error "persistent root directory not set"
+    }
+
+    if {[string length $persistentRootDirectory] == 0} then {
+      error "persistent root directory is invalid"
+    }
+
+    #
+    # NOTE: Either the persistent root directory must already exist -OR- we
+    #       must be able to create it.
+    #
+    if {![file isdirectory $persistentRootDirectory] && \
+        [catch {file mkdir $persistentRootDirectory}]} then {
+      error [appendArgs \
+          "persistent root directory \"" $persistentRootDirectory \
+          "\" does not exist and could not be created"]
+    }
+  }
+
+  #
+  # NOTE: This procedure returns the name of the package index file for the
+  #       language specified by the language argument.  An empty string will
+  #       be returned if the language is unsupported or unrecognized.
+  #
+  proc getPackageIndexFileName { language } {
+    if {[string length $language] == 0 || $language eq "eagle"} then {
+      return pkgIndex.eagle
+    } elseif {$language eq "tcl"} then {
+      return pkgIndex.tcl
+    } else {
+      return ""
+    }
+  }
+
+  #
+  # NOTE: This procedure, which is only used for native Tcl, generates a
+  #       "root" package index file (i.e. "pkgIndex.tcl") suitable for
+  #       use with native Tcl 8.4 (or higher).  It will recursively scan
+  #       for all other native Tcl package index files that are within the
+  #       configured persistent root directory and [source] them, thereby
+  #       causing all packages located within them to become available.
+  #       Since Eagle (by default) already performs recursive searches for
+  #       its package index files, this procedure is not needed for Eagle.
+  #       The return value is undefined.
+  #
+  proc maybeCreateRootTclPackageIndex {} {
+    variable persistentRootDirectory
+
+    verifyPersistentRootDirectory
+    set persistentDirectory $persistentRootDirectory
+
+    set fileName [file join $persistentDirectory pkgIndex.tcl]
+    if {[file exists $fileName]} then {return ""}
+
+    writeFile $fileName [string trim [string map [list \r\n \n] {
+###############################################################################
+#
+# pkgIndex.tcl --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Generated Recursive Package Index File -- PLEASE DO NOT EDIT
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+if {![package vsatisfies [package provide Tcl] 8.4]} {return}
+if {[string length [package provide Eagle]] > 0} then {return}
+
+set pkgd(savedDir) $dir; set pkgd(dirs) [list $pkgd(savedDir)]
+
+for {set pkgd(i) 0} {$pkgd(i) < [llength $pkgd(dirs)]} {incr pkgd(i)} {
+  set pkgd(dir) [lindex $pkgd(dirs) $pkgd(i)]
+
+  if {$pkgd(i) > 0} then {
+    set pkgd(file) [file join $pkgd(dir) pkgIndex.tcl]
+
+    if {[file exists $pkgd(file)]} then {
+      set dir $pkgd(dir); source $pkgd(file)
+    }
+  }
+
+  eval lappend pkgd(dirs) \
+      [lsort [glob -nocomplain -types {d} [file join $pkgd(dir) *]]]
+}
+
+set dir $pkgd(savedDir); unset -nocomplain pkgd
+    }]]
+
+    return ""
+  }
+
+  #
+  # NOTE: This procedure attempts to download the Package Signing Keys from
+  #       the remote server and save it to a local file.  This procedure may
+  #       raise script errors.  The fileName argument is the name of the file
+  #       where the downloaded data should be written.  This procedure is only
+  #       intended to be used from the "pkgr_setup.eagle" tool script and may
+  #       go away in later versions of this package.
+  #
+  # <internal>
+  proc downloadAndSaveOpenPgpKeyFile { fileName } {
+    variable baseUri
+    variable openPgpKeyUri
+    variable openPgpKeyUriFallback
+    variable openPgpKeyUrn
+    variable openPgpKeyUrnFallback1
+
+    set errors [list]
+
+    foreach substUri [list $openPgpKeyUri $openPgpKeyUriFallback] {
+      #
+      # NOTE: Attempt to download the Package Signing Keys using the
+      #       configured URI.
+      #
+      if {[catch {
+        #
+        # NOTE: First, build the actual URI where the Package Signing
+        #       Keys should be obtained, performing any applicable
+        #       substitutions in the URI prior to using it as the
+        #       basis for downloading the Package Signing Keys file.
+        #
+        set uri [subst $substUri]
+
+        #
+        # NOTE: Then, in one step, download the file from the package
+        #       file server and write it to the specified local file.
+        #
+        downloadOneUriToFile $fileName $uri false false
+      } result] == 0} then {
+        #
+        # NOTE: Ok, success.  We are done.
+        #
+        return ""
+      } else {
+        #
+        # NOTE: Keep track of all errors that are encountered while
+        #       trying to download the Package Signing Keys, for later
+        #       reporting.
+        #
+        lappend errors [list $uri $result]
+      }
+    }
+
+    #
+    # NOTE: Make sure there is always an error message.
+    #
+    if {[llength $errors] == 0} then {
+      lappend errors "no URIs are available for package signing keys"
+    }
+
+    error $errors
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified file seems to be
+  #       an OpenPGP signature file.  The fileName argument is the name of
+  #       the file to check, which may or may not exist.  The nameOnly
+  #       argument should be non-zero to ignore the contents of the file.
+  #
+  proc isOpenPgpSignatureFileName { fileName nameOnly } {
+    if {[string length $fileName] == 0} then {
+      return false
+    }
+
+    set extension [file extension $fileName]
+
+    if {$extension eq ".txt" || $extension eq ".asc"} then {
+      if {!$nameOnly && [file exists $fileName]} then {
+        return [::PackageRepository::isOpenPgpSignature \
+            [readFile $fileName]]
+      } else {
+        return true
+      }
+    } else {
+      return false
+    }
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified file seems to be
+  #       a Harpy script certificate file.  The fileName argument is the name
+  #       of the file to check, which may or may not exist.  The nameOnly
+  #       argument should be non-zero to ignore the contents of the file.
+  #
+  # <notUsed>
+  proc isHarpyCertificateFileName { fileName nameOnly } {
+    if {[string length $fileName] == 0} then {
+      return false
+    }
+
+    set extension [file extension $fileName]
+
+    if {$extension eq ".harpy"} then {
+      if {!$nameOnly && [file exists $fileName]} then {
+        return [::PackageRepository::isHarpyCertificate \
+            [readFile $fileName]]
+      } else {
+        return true
+      }
+    } else {
+      return false
+    }
+  }
+
+  #
+  # NOTE: This procedure attempts to verify the specified OpenPGP signature
+  #       file.  If the forcePgp parameter is non-zero verification will be
+  #       attempted even when the specified file does not appear to be an
+  #       OpenPGP signature file.  This procedure may raise script errors.
+  #
+  proc maybeVerifyOpenPgpSignature { fileName forcePgp } {
+    #
+    # NOTE: Is this temporary package file actually just an OpenPGP
+    #       signature file?  If so, skip it.
+    #
+    if {$forcePgp || \
+        [isOpenPgpSignatureFileName $fileName true]} then {
+      #
+      # NOTE: Attempt to verify the OpenPGP signature.  If this fails,
+      #       an error is raised.
+      #
+      ::PackageRepository::probeForOpenPgpInstallation
+      ::PackageRepository::openPgpMustBeInstalled
+
+      if {![::PackageRepository::verifyOpenPgpSignature \
+          $fileName]} then {
+        error [appendArgs \
+            "bad OpenPGP signature \"" $fileName \"]
+      }
+    }
+  }
+
+  #
+  # NOTE: This procedure returns the auto-path for the language specified by
+  #       the language argument.  An empty list is returned if the auto-path
+  #       does not exist in the target language.  This procedure may raise
+  #       script errors.
+  #
+  proc getAutoPath { language } {
+    if {[string length $language] == 0 || $language eq "eagle"} then {
+      if {[isEagle]} then {
+        if {![info exists ::auto_path]} then {
+          return [list]
+        }
+
+        return $::auto_path
+      } else {
+        ::PackageRepository::eagleMustBeReady
+
+        eagle {
+          if {![info exists ::auto_path]} then {
+            return [list]
+          }
+
+          return $::auto_path
+        }
+      }
+    } elseif {$language eq "tcl"} then {
+      if {[isEagle]} then {
+        tcl eval [tcl primary] {
+          if {![info exists ::auto_path]} then {
+            return [list]
+          }
+
+          return $::auto_path
+        }
+      } else {
+        if {![info exists ::auto_path]} then {
+          return [list]
+        }
+
+        return $::auto_path
+      }
+    } else {
+      error "unsupported language, no idea how to query auto-path"
+    }
+  }
+
+  #
+  # NOTE: This procedure adds a directory to the auto-path of the specified
+  #       language (i.e. native Tcl or Eagle).  The directory will not be
+  #       added if it is already present.  The language argument must be the
+  #       literal string "eagle" or the literal string "tcl".  The directory
+  #       argument is the fully qualified path for the directory to add to
+  #       the auto-path.
+  #
+  proc addToAutoPath { language directory } {
+    #
+    # NOTE: Add the specified directory to the auto-path if not already
+    #       present.
+    #
+    if {[string length $language] == 0 || $language eq "eagle"} then {
+      if {[isEagle]} then {
+        if {![info exists ::auto_path] || \
+            [lsearch -exact $::auto_path $directory] == -1} then {
+          lappend ::auto_path $directory
+        }
+      } else {
+        ::PackageRepository::eagleMustBeReady
+
+        eagle [string map [list %directory% $directory] {
+          if {![info exists ::auto_path] || \
+              [lsearch -exact $::auto_path {%directory%}] == -1} then {
+            lappend ::auto_path {%directory%}
+          }
+        }]
+      }
+    } elseif {$language eq "tcl"} then {
+      if {[isEagle]} then {
+        tcl eval [tcl primary] [string map [list %directory% $directory] {
+          if {![info exists ::auto_path] || \
+              [lsearch -exact $::auto_path {%directory%}] == -1} then {
+            lappend ::auto_path {%directory%}
+          }
+        }]
+      } else {
+        if {![info exists ::auto_path] || \
+            [lsearch -exact $::auto_path $directory] == -1} then {
+          lappend ::auto_path $directory
+        }
+      }
+    } else {
+      error "unsupported language, no idea how to modify auto-path"
+    }
+  }
+
+  #
+  # NOTE: This procedure adds a directory to the auto-path of the specified
+  #       language (i.e. native Tcl or Eagle).  The directory will not be
+  #       added if it is already present.  The language argument must be the
+  #       literal string "eagle" or the literal string "tcl".  The directory
+  #       argument is the fully qualified path for the directory to add to
+  #       the auto-path.  The directory will not be added if it falls under
+  #       a directory already in the auto-path.
+  #
+  proc maybeAddToAutoPath { language directory } {
+    #
+    # NOTE: Verify that the directory to be added is valid and exists.  If
+    #       not, do nothing.
+    #
+    if {[string length $directory] == 0 || \
+        ![file isdirectory $directory]} then {
+      return false
+    }
+
+    #
+    # NOTE: Normalize the specified directory.  This is necessary so that
+    #       we can compare apples-to-apples within the auto-path.
+    #
+    set directory [file normalize $directory]
+    set directoryLength [string length $directory]
+
+    #
+    # NOTE: Query the auto-path for the target language.
+    #
+    set autoPath [getAutoPath $language]
+
+    #
+    # NOTE: Check each directory in the auto-path to see if the specified
+    #       directory is already underneath it.
+    #
+    foreach autoDirectory $autoPath {
+      #
+      # NOTE: Normalize the auto-path directory.  This is necessary so
+      #       that we can compare apples-to-apples with the specified
+      #       directory.
+      #
+      set autoDirectory [file normalize $autoDirectory]
+      set autoDirectoryLength [string length $autoDirectory]
+
+      #
+      # NOTE: Prefix match is impossible if the length of the specified
+      #       directory is less than the length of this directory in the
+      #       auto-path.
+      #
+      if {$directoryLength < $autoDirectoryLength} then {
+        continue
+      }
+
+      #
+      # NOTE: If the initial portion of the specified directory is the
+      #       same as this directory in the auto-path, it must reside
+      #       underneath it.  In that case, there is no need to modify
+      #       the auto-path, bail out now.
+      #
+      set last [expr {$autoDirectoryLength - 1}]
+
+      if {[string range $directory 0 $last] eq $autoDirectory} then {
+        return false
+      }
+    }
+
+    #
+    # NOTE: At this point, it is pretty safe to assume that the specified
+    #       directory is not in the auto-path, nor underneath a directory
+    #       within the auto-path.
+    #
+    addToAutoPath $language $directory
+
+    return true
+  }
+
+  #
+  # NOTE: This procedure attempts to verify that an instance of Mono and its
+  #       associated runtimes are installed locally.  There are no arguments.
+  #       The return value is non-zero if Mono appears to be installed and
+  #       available for use; otherwise, the return value is zero.
+  #
+  proc isMonoInstalled {} {
+    variable monoFileNameOnly
+    variable monoInstalledCommand
+    variable monoInstalledPattern
+
+    if {[isEagle]} then {
+      if {[catch {
+        eval exec -success Success [subst $monoInstalledCommand]
+      } result]} then {
+        return false
+      }
+    } else {
+      if {[catch {
+        eval exec [subst $monoInstalledCommand]
+      } result]} then {
+        return false
+      }
+    }
+
+    if {![info exists result] || \
+        ![regexp -- $monoInstalledPattern $result]} then {
+      return false
+    }
+
+    return true
+  }
+
+  #
+  # NOTE: This procedure attempts to verify that an instance of .NET Core
+  #       and its associated runtimes are installed locally.  There are no
+  #       arguments.  The return value is non-zero if .NET Core appears to
+  #       be installed and available for use; otherwise, the return value
+  #       is zero.
+  #
+  proc isDotNetCoreInstalled {} {
+    variable dotnetFileNameOnly
+    variable dotnetInstalledCommand
+    variable dotnetInstalledPattern
+
+    if {[isEagle]} then {
+      if {[catch {
+        eval exec -success Success [subst $dotnetInstalledCommand]
+      } result]} then {
+        return false
+      }
+    } else {
+      if {[catch {
+        eval exec [subst $dotnetInstalledCommand]
+      } result]} then {
+        return false
+      }
+    }
+
+    if {![info exists result] || \
+        ![regexp -- $dotnetInstalledPattern [string trim $result]]} then {
+      return false
+    }
+
+    return true
+  }
+
+  #
+  # NOTE: This procedure attempts to verify that some runtime is available to
+  #       run CLR applications locally (e.g. the .NET Framework or Mono JIT).
+  #       There are no arguments.  The return value is non-zero if it appears
+  #       that CLR applications should be runnable locally; otherwise, the
+  #       return value is zero.
+  #
+  proc canUseMsilPlatform {} {
+    if {[isWindows]} then {
+      #
+      # HACK: Assume that all Windows operating systems have a compatible
+      #       version of the .NET Framework is installed -AND- that it can
+      #       be used to run any CLR application.
+      #
+      return true
+    } else {
+      #
+      # HACK: On all other platforms, assume that Mono -OR- .NET Core can
+      #       be used to run any CLR application.
+      #
+      return [expr {[isMonoInstalled] || [isDotNetCoreInstalled]}]
+    }
+  }
+
+  #
+  # NOTE: This procedure verifies that the specified value is indeed a valid
+  #       package name.  The packageName argument is the value to verify.
+  #       This procedure may raise script errors.
+  #
+  # <internal>
+  proc verifyPackageName { packageName } {
+    if {[string length $packageName] > 0 && \
+        ![regexp -nocase -- {^[A-Z][0-9A-Z\.]*$} $packageName]} then {
+      error "package name must be alphanumeric and start with a letter"
+    }
+  }
+
+  #
+  # NOTE: This procedure verifies that the specified value is indeed a valid
+  #       patch level.  The patchLevel argument is the value to verify.  This
+  #       procedure may raise script errors.
+  #
+  # <internal>
+  proc verifyPackagePatchLevel { patchLevel } {
+    if {[string length $patchLevel] > 0 && \
+        ![regexp -nocase -- {^\d+\.\d+(?:\.\d+){0,2}$} $patchLevel]} then {
+      error "patch level must use dotted decimal notation"
+    }
+  }
+
+  #
+  # NOTE: This procedure verifies the combination of language and version
+  #       specified by the caller.  The language argument must be one of the
+  #       literal strings "eagle", "tcl", or "client".  The version argument
+  #       must be one of the literal strings "8.4", "8.5", "8.6", or "8.7"
+  #       when the language is "tcl" -OR- the literal string "1.0" when the
+  #       language is "eagle".  When the language is "client", the version
+  #       match the major and minor portions of "1.0" and any remaining
+  #       portions must be numeric.  The varName argument is the name of a
+  #       scalar variable in the context of the immediate caller that will
+  #       receive a boolean value indicating if the specified language is
+  #       actually a reference to the package downloader client itself.
+  #
+  # <internal>
+  proc verifyLanguageAndVersion { language version varName } {
+    if {[string length $varName] > 0} then {
+      upvar 1 $varName isClient
+    }
+
+    set isClient false
+
+    if {[string length $language] == 0 || $language eq "eagle"} then {
+      if {$version ne "1.0"} then {
+        error "unsupported Eagle version"
+      }
+    } elseif {$language eq "tcl"} then {
+      if {$version ne "8.4" && $version ne "8.5" && \
+          $version ne "8.6" && $version ne "8.7"} then {
+        error "unsupported Tcl version"
+      }
+    } elseif {$language eq "client"} then {
+      if {![regexp -- {^1\.0(?:\.\d+){0,2}$} $version]} then {
+        error "unsupported client version"
+      }
+
+      set isClient true
+    } else {
+      error "unsupported package language"
+    }
+  }
+
+  #
+  # NOTE: This procedure returns the name of the current platform.  There are
+  #       no arguments.  An empty string will be returned if the name of the
+  #       current platform cannot be determined for any reason.
+  #
+  # <internal>
+  proc getPlatform {} {
+    global tcl_platform
+
+    if {[info exists tcl_platform(platform)]} then {
+      set platform $tcl_platform(platform)
+
+      if {[info exists tcl_platform(machine)]} then {
+        set machine $tcl_platform(machine)
+      } else {
+        set machine ""
+      }
+
+      if {[info exists tcl_platform(os)]} then {
+        set os $tcl_platform(os)
+      } else {
+        set os ""
+      }
+
+      switch -exact -- $platform {
+        unix {
+          switch -exact -- $os {
+            Darwin {
+              switch -exact -- $machine {
+                "Power Macintosh" {
+                  return macosx-power
+                }
+                x86_64 {
+                  return macosx-x64
+                }
+              }
+            }
+            Linux {
+              switch -exact -- $machine {
+                i386 {
+                  return linux-x86
+                }
+                x86_64 {
+                  return linux-x64
+                }
+                alpha -
+                armv4l -
+                armv6l -
+                armv7l -
+                ia64 -
+                ppc {
+                  return [appendArgs linux- $machine]
+                }
+              }
+            }
+          }
+        }
+        windows {
+          switch -exact -- $machine {
+            intel -
+            ia32_on_win64 {
+              return win32-x86
+            }
+            arm {
+              return [appendArgs win32- $machine]
+            }
+            amd64 {
+              return win64-x64
+            }
+            ia64 -
+            arm64 {
+              return [appendArgs win64- $machine]
+            }
+          }
+        }
+      }
+    }
+
+    return ""
+  }
+
+  #
+  # NOTE: This procedure verifies that the specified value is indeed a valid
+  #       version identifier.  The versionId argument is the value to verify.
+  #       This procedure may raise script errors.
+  #
+  # <internal>
+  proc verifyVersionId { versionId } {
+    if {[string length $versionId] > 0 && \
+        ![regexp -nocase -- {^[0-9A-F]*$} $versionId]} then {
+      error "version Id must be hexadecimal"
+    }
+  }
+
+  #
+  # NOTE: This procedure verifies the platform specified by the caller.  The
+  #       platform argument must be an empty string -OR- one of the literal
+  #       strings "msil" or "neutral", or one of the values returned by the
+  #       [getPlatform] procedure.  An empty string means that the associated
+  #       entity does not require a specific platform.  The varName argument
+  #       is the name of a variable in the context of the immediate caller
+  #       that will receive a modified platform name, if applicable.  Upon
+  #       failure, a script error will be raised.  The return value is
+  #       undefined.
+  #
+  # <internal>
+  proc verifyPlatform { platform varName } {
+    #
+    # NOTE: The platform name must be matched exactly and case-sensitively.
+    #
+    switch -exact -- $platform {
+      "" {
+        #
+        # NOTE: The empty string means "attempt to automatically detect" the
+        #       necessary platform based on context information that may be
+        #       present in the context of the immediate caller.  If this is
+        #       not possible, a script error will be raised.
+        #
+        upvar 1 language language
+
+        if {![info exists language]} then {
+          error "unable to detect language"
+        }
+
+        upvar 1 version version
+
+        if {![info exists version]} then {
+          error "unable to detect version"
+        }
+
+        upvar 1 packageName packageName
+
+        if {[info exists packageName]} then {
+          set localPackageName $packageName
+        } else {
+          set localPackageName ""
+        }
+
+        upvar 1 fileNames fileNames
+
+        if {[info exists fileNames]} then {
+          set localFileNames $fileNames
+        } else {
+          set localFileNames [list]
+        }
+
+        upvar 1 usePgp usePgp
+
+        if {[info exists usePgp]} then {
+          set localUsePgp $usePgp
+        } else {
+          set localUsePgp false
+        }
+
+        #
+        # NOTE: Since not all potential callers to this procedure may login
+        #       first, attempt to do that now, if necessary.
+        #
+        maybeResetCookieAndLoginSimple
+
+        #
+        # NOTE: Download the list of platforms associated with this package
+        #       from the package repository server.  This may fail and raise
+        #       a script error.
+        #
+        set platforms [downloadAllPlatforms \
+            $language $version $localPackageName $localFileNames $localUsePgp]
+
+        if {[string length $varName] > 0} then {
+          upvar 1 $varName newPlatform
+        }
+
+        #
+        # NOTE: First, check the current platform and the neutral platform,
+        #       in that order, to see if that platform is supported by the
+        #       package being saught.
+        #
+        set thesePlatforms [list [getPlatform] neutral]
+
+        #
+        # NOTE: Next, optionally, allow the "msil" platform to be checked.
+        #       Currently, this is always applicable on Windows; however,
+        #       on all other platforms this depends on having Mono and its
+        #       associated runtimes installed locally.
+        #
+        if {[canUseMsilPlatform]} then {
+          lappend thesePlatforms msil
+        }
+
+        #
+        # NOTE: Check each applicable platform, in order, stopping when a
+        #       supported platform is found for the package being saught.
+        #
+        foreach thisPlatform $thesePlatforms {
+          if {[lsearch -exact $platforms $thisPlatform] != -1} then {
+            set newPlatform $thisPlatform
+            return
+          }
+        }
+
+        #
+        # NOTE: If this point is reached, there are no supported platforms
+        #       that are compatible with the current one for the specified
+        #       package.
+        #
+        error "could not automatically detect platform"
+      }
+      msil {
+        #
+        # NOTE: Forbid the "msil" platform if it is not available for use.
+        #
+        if {![canUseMsilPlatform]} then {
+          error "platform \"msil\" does not appear to be supported"
+        }
+      }
+      neutral -
+      win32-arm -
+      win32-x86 -
+      win64-arm64 -
+      win64-ia64 -
+      win64-x64 {
+        #
+        # NOTE: This platform name is supported verbatim, do nothing.
+        #
+      }
+      default {
+        error "unsupported package platform"
+      }
+    }
+  }
+
+  #
+  # NOTE: This procedure checks the current login cookie to make sure that
+  #       it exists -AND- conforms to the correct format.
+  #
+  proc haveValidLoginCookie {} {
+    variable loginCookie
+
+    if {![info exists loginCookie]} then {
+      return false
+    }
+
+    if {[isEagle] || \
+        ([info exists tcl_version] && $tcl_version >= 8.5)} then {
+      if {![string is list -strict $loginCookie]} then {
+        return false
+      }
+    }
+
+    if {[llength $loginCookie] != 2} then {
+      return false
+    }
+
+    return true
+  }
+
+  #
+  # NOTE: This procedure issues a request to an HTTP(S) server.  It returns
+  #       the raw response data verbatim.  It may raise a script error.  It
+  #       will always use the currently configured HTTP(S) login cookie, if
+  #       any; therefore, it should really only be used for requests to the
+  #       package file server.  The uri argument is the fully qualified URI
+  #       to request.  The allowHtml argument should be non-zero if raw HTML
+  #       should be allowed in the response data.
+  #
+  proc getPackageFile { uri {allowHtml false} } {
+    variable loginCookie
+    variable quiet
+
+    if {[isEagle]} then {
+      if {![info exists ::eagle_platform(compileOptions)]} then {
+        error "missing compile options from Eagle platform array"
+      }
+
+      if {[lsearch -exact -- \
+          $::eagle_platform(compileOptions) TEST] == -1} then {
+        error "cannot download: library missing TEST compile-option"
+      }
+
+      if {[lsearch -exact -- \
+          $::eagle_platform(compileOptions) NETWORK] == -1} then {
+        error "cannot download: library missing NETWORK compile-option"
+      }
+
+      if {![object invoke Eagle._Tests.Default \
+          TestHasScriptNewWebClientCallback ""]} then {
+        set error null
+
+        set code [object invoke Eagle._Tests.Default \
+            TestSetScriptNewWebClientCallback "" true true error]
+
+        if {$code ne "Ok"} then {
+          error [getStringFromObjectHandle $error]
+        }
+      }
+
+      if {[haveValidLoginCookie]} then {
+        set script [object create String {
+          if {[methodName ToString] eq "GetWebRequest"} then {
+            webRequest Headers.Add Cookie [join $loginCookie =]
+          }
+        }]
+
+        set data [uri download \
+            -timeouttype network -inline \
+            -webclientdata $script -- $uri]
+      } else {
+        set data [uri download \
+            -timeouttype network -inline -- $uri]
+      }
+    } else {
+      set options [list -binary true]
+
+      if {[haveValidLoginCookie]} then {
+        lappend options -headers [list Cookie [join $loginCookie =]]
+      }
+
+      set data [eval ::PackageRepository::getFileViaHttp \
+          [list $uri] [list 20] [list stdout] [list $quiet] $options]
+    }
+
+    #
+    # HACK: Check for the typical Fossil error response(s), which is an
+    #       HTML page that may contain something like "Artifact 'X' does
+    #       not exist in this repository").
+    #
+    if {!$allowHtml && [string range $data 0 14] eq "<!DOCTYPE html>"} then {
+      error "bad package file response data, appears to be HTML page"
+    }
+
+    return $data
+  }
+
+  #
+  # NOTE: This procedure returns the prefix for fully qualified variable
+  #       names that MAY be present in the global namespace.  There are
+  #       no arguments.
+  #
+  proc getDownloadVarNamePrefix {} {
+    return ::pkgd_; # TODO: Make non-global?
+  }
+
+  #
+  # NOTE: This procedure resets the currently configured login cookie, if
+  #       any, and then attempts to login using the configured package
+  #       repository server API key -OR- using the public access account.
+  #       Upon success, it will set the login cookie to the one from the
+  #       raw response data.  Upon failure, a script error will be raised.
+  #       There are no arguments.
+  #
+  # <public>
+  proc resetCookieAndLoginSimple {} {
+    variable publicPassword
+    variable publicUserName
+
+    set apiKey [lindex [::PackageRepository::getApiKeys \
+        [getDownloadVarNamePrefix] true] 0]
+
+    if {[string length $apiKey] > 0} then {
+      return [resetCookieAndLogin $apiKey $apiKey]
+    }
+
+    if {[string length $publicUserName] > 0 && \
+        [string length $publicPassword] > 0} then {
+      return [resetCookieAndLogin $publicUserName $publicPassword]
+    }
+
+    error "missing API keys and no public login credentials configured"
+  }
+
+  #
+  # NOTE: This procedure attempts to login using the configured package
+  #       repository server API key -OR- using the public access account,
+  #       if not already logged in.  Upon success, it will set the login
+  #       cookie to the one from the raw response data.  Upon failure, a
+  #       script error will be raised.  There are no arguments.
+  #
+  # <internal>
+  proc maybeResetCookieAndLoginSimple {} {
+    variable loginCookie
+
+    #
+    # NOTE: Attempt to verify that we are currently logged in.  If so, do
+    #       nothing; otherwise, attempt to login.
+    #
+    if {![haveValidLoginCookie]} then {
+      resetCookieAndLoginSimple
+    }
+  }
+
+  #
+  # NOTE: This procedure resets the currently configured login cookie, if
+  #       any, and then attempts to login using the specified user name and
+  #       password.  Upon success, it will set the login cookie to the one
+  #       from the raw response data.  Upon failure, a script error will be
+  #       raised.  The userName argument must be the name of a package file
+  #       server user with at least Fossil Check-Out (o) permissions on the
+  #       package file server.  The password argument must be the plaintext
+  #       password that is associated with the specified user name.
+  #
+  # <public>
+  proc resetCookieAndLogin { userName password } {
+    variable baseUri
+    variable loginCookie
+    variable loginUri
+    variable loginUrn
+
+    #
+    # NOTE: Build the full URI for the login request, performing any
+    #       applicable substitutions in the URI prior to using it as
+    #       the basis for logging into the repository.
+    #
+    set uri [subst $loginUri]
+
+    #
+    # NOTE: Reset the old login cookie, if any.  Then, issue a new login
+    #       request, capturing the raw response data.
+    #
+    set loginCookie [list]; set data [getPackageFile $uri]
+
+    #
+    # NOTE: Attempt to extract the necessary values from the raw response
+    #       data.
+    #
+    set pattern(1) {"authToken":"(.*?)"}; # TODO: *HACK* Keep updated.
+
+    if {![regexp -- $pattern(1) $data dummy authToken]} then {
+      error "login response missing \"authToken\""
+    }
+
+    set pattern(2) {"loginCookieName":"(.*?)"}; # TODO: *HACK* Keep updated.
+
+    if {![regexp -- $pattern(2) $data dummy loginCookieName]} then {
+      error "login response missing \"loginCookieName\""
+    }
+
+    #
+    # NOTE: Set the login cookie to the one freshly extracted from the raw
+    #       response data.
+    #
+    set loginCookie [list $loginCookieName $authToken]
+
+    #
+    # NOTE: Always return an empty string (i.e. and not any response data).
+    #
+    return ""
+  }
+
+  #
+  # NOTE: This procedure attempts to logout using the currently configured
+  #       login cookie, if any, and then resets the login cookie.  There
+  #       are no arguments.  This procedure may raise a script error.
+  #
+  # <public>
+  proc logoutAndResetCookie {} {
+    variable baseUri
+    variable loginCookie
+    variable logoutUri
+    variable logoutUrn
+
+    #
+    # NOTE: Attempt to verify that we are currently logged in.
+    #
+    if {![haveValidLoginCookie]} then {
+      error "missing or invalid login cookie"
+    }
+
+    #
+    # NOTE: Build the full URI for the logout request, performing any
+    #       applicable substitutions in the URI prior to using it as
+    #       the basis for logging out of the repository.
+    #
+    set authToken [lindex $loginCookie 1]
+    set uri [subst $logoutUri]
+
+    #
+    # NOTE: Reset the old login cookie, if any.  Then, issue a new login
+    #       request, capturing the raw response data.
+    #
+    set data [getPackageFile $uri]
+
+    #
+    # NOTE: Attempt to extract the necessary values from the raw response
+    #       data.
+    #
+    set pattern(1) {"name":"nobody"}; # TODO: *HACK* Keep updated.
+
+    if {![regexp -- $pattern(1) $data dummy]} then {
+      error "logout response missing \"name\""
+    }
+
+    #
+    # NOTE: Reset the login cookie.
+    #
+    set loginCookie [list]
+
+    #
+    # NOTE: Always return an empty string (i.e. and not any response data).
+    #
+    return ""
+  }
+
+  #
+  # NOTE: This procedure returns a unique temporary directory where one or
+  #       more files may be saved.  The prefix argument is a prefix for the
+  #       directory name and it may be an empty string.  There is no attempt
+  #       to actually create the resulting directory.
+  #
+  proc getUniqueTempDirectory { {prefix ""} } {
+    variable temporaryRootDirectory
+    variable verboseTemporaryDirectory
+
+    set suffix [::PackageRepository::getUniqueSuffix]
+
+    if {[string length $prefix] > 0} then {
+      set result [file join $temporaryRootDirectory \
+          [appendArgs $prefix $suffix]]
+    } else {
+      set result [file join $temporaryRootDirectory \
+          $suffix]
+    }
+
+    if {$verboseTemporaryDirectory} then {
+      pkgLog [appendArgs \
+          "returning temporary directory name \"" $result \
+          "\" for prefix \"" $prefix \"...]
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure creates a new interpreter, which may be "safe", and
+  #       places a reference to it in a variable in the context of the caller
+  #       identified by the varName argument.  The created interpreter has a
+  #       fully functioning [package] command ensemble; all other commands do
+  #       nothing and return nothing.  This procedure may raise script errors.
+  #
+  proc createInterp { varName } {
+    #
+    # NOTE: Prepare to provide the caller with the newly created interpreter
+    #       reference.
+    #
+    upvar 1 $varName interp
+
+    #
+    # NOTE: Create a "safe" interpreter and set the global "dir" variable to
+    #       a single period.  Generally, this is the only variable used by a
+    #       package index file.  It should be noted that since [set] will be
+    #       a NOP, attempts to use other variables in the specified package
+    #       index file (e.g. ones [set] within it) will fail.
+    #
+    set interp [interp create -safe]
+    interp eval $interp [list set dir .]
+
+    #
+    # NOTE: First, obtain the list of child namespaces to delete, if any, and
+    #       then delete them all.  This should leave the global namespace and
+    #       its commands / variables untouched.
+    #
+    set namespaces [interp eval $interp [list namespace children ::]]
+
+    foreach namespace $namespaces {
+      catch {
+        interp eval $interp [list namespace delete $namespace]
+      }
+    }
+
+    #
+    # NOTE: Next, obtain the list of global commands and delete all of them
+    #       except the [proc] and [package] commands.  The [proc] command is
+    #       handled specially (last) and the [package] command is retained.
+    #
+    set commands [interp eval $interp [list info commands]]
+
+    foreach command $commands {
+      if {$command ne "proc" && $command ne "package"} then {
+        interp eval $interp [list proc $command args ""]; # NOP
+      }
+    }
+
+    if {![isEagle]} then {
+      #
+      # HACK: The "safe" interpreters in native Tcl do not contain
+      #       the [file] command at all, not even for [file join]
+      #       and [file split], which may be used in package index
+      #       files; therefore, add it as a NOP command.
+      #
+      interp eval $interp [list proc file args ""]; # NOP
+    }
+
+    #
+    # NOTE: Next, disable the [proc] command.  This must be done last
+    #       because it is used to disable (i.e. via NOP) all the other
+    #       global commands.
+    #
+    interp eval $interp [list proc proc args ""]; # NOP
+
+    #
+    # NOTE: Finally, return nothing as the created interpreter reference
+    #       is placed directly into the variable specified by the caller.
+    #
+    return ""
+  }
+
+  #
+  # NOTE: This procedure evaluates a script file and attempts to determine the
+  #       list of new [package ifneeded] scripts added by it.  When successful
+  #       it returns a list-of-lists.  Each element of the outer list contains
+  #       a package name and the list of its versions in descending order; in
+  #       the event of failure, empty lists may be returned for the outer list
+  #       or for a list of versions.  The interp argument is the interp to use
+  #       when evaluating the file specified by the fileName argument.  This
+  #       procedure may raise script errors.
+  #
+  proc getIfNeededVersions { interp fileName } {
+    set result [list]
+
+    set oldPackageNames [interp eval $interp [list package names]]
+    interp invokehidden $interp source $fileName; # [package ifneeded], etc.
+    set newPackageNames [interp eval $interp [list package names]]
+
+    foreach packageName $newPackageNames {
+      if {[lsearch -exact $oldPackageNames $packageName] == -1} then {
+        lappend result [list $packageName [lsort -decreasing \
+            -command [list package vcompare] [interp eval \
+            $interp [list package versions $packageName]]]]
+      }
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure attempts to extract a package version information
+  #       from the specified file.  The fileName argument is the local file
+  #       name to read.  This procedure may raise script errors.
+  #
+  proc extractVersionsFromFile { fileName } {
+    switch -exact -- [file tail $fileName] {
+      VERSION {
+        return [list [string trim [readFile $fileName]]]
+      }
+      pkgIndex.eagle -
+      pkgIndex.tcl {
+        #
+        # TODO: Evaluate the package index file in a new "safe"
+        #       interpreter and obtain the newly added [package
+        #       ifneeded] version(s)?
+        #
+        if {[catch {createInterp interp} error] == 0} then {
+          set result [getIfNeededVersions $interp $fileName]
+        } else {
+          pkgLog [appendArgs \
+              "could not create interp to extract versions: " \
+              $error]
+
+          set result [list]
+        }
+
+        if {[info exists interp]} then {
+          catch {interp delete $interp}
+          unset interp; # REDUNDANT
+        }
+
+        return $result
+      }
+    }
+  }
+
+  #
+  # NOTE: This procedure checks if there is a higher version available of the
+  #       specified package on the package file server.  The language argument
+  #       must be one of the literal strings "eagle", "tcl", or "client".  The
+  #       version argument must be one of the literal strings "8.4", "8.5", or
+  #       "8.6" when the language is "tcl" -OR- the literal string "1.0" when
+  #       the language is either "eagle" or "client".  The platform argument
+  #       must be an empty string -OR- one of the literal strings "msil" or
+  #       "neutral", or one of the values returned by the [getPlatform]
+  #       procedure.  An empty string means that the associated package does
+  #       not require a specific platform.  The packageName argument is a
+  #       directory name relative to the language and version-specific
+  #       directory on the package file server and may be an empty string.
+  #       The usePgp argument should be non-zero when an OpenPGP signature
+  #       file needs to be downloaded and verified for the downloaded file.
+  #
+  # <public>
+  proc checkForHigherVersion { language version platform packageName usePgp } {
+    variable clientDirectory
+    variable persistentRootDirectory
+
+    verifyPackageName $packageName
+    verifyLanguageAndVersion $language $version isClient
+    verifyPlatform $platform platform
+
+    set temporaryDirectory [getUniqueTempDirectory pkgd_ver_]
+
+    if {$isClient} then {
+      set persistentDirectory $clientDirectory
+    } else {
+      verifyPersistentRootDirectory
+      set persistentDirectory $persistentRootDirectory
+    }
+
+    set fileNamesOnly [list VERSION pkgIndex.eagle pkgIndex.tcl]
+
+    foreach fileNameOnly $fileNamesOnly {
+      set fileName [file join $packageName $fileNameOnly]
+      set downloadFileName [file join $temporaryDirectory $fileName]
+
+      file mkdir [file dirname $downloadFileName]
+
+      if {[catch {
+        downloadOneFile $language $version $platform \
+            $fileName $downloadFileName $usePgp
+      }] == 0} then {
+        if {$usePgp} then {
+          downloadOneFile $language $version $platform \
+              [appendArgs $fileName .asc] \
+              [appendArgs $downloadFileName .asc] $usePgp
+        }
+
+        set localFileName [file join $persistentDirectory $fileName]
+
+        set compare [package vcompare \
+            [lindex [extractVersionsFromFile $downloadFileName] 0] \
+            [lindex [extractVersionsFromFile $localFileName] 0]]
+
+        if {[isEagle]} then {
+          file delete -recursive -- $temporaryDirectory
+        } else {
+          file delete -force -- $temporaryDirectory
+        }
+
+        return [expr {$compare > 0}]
+      }
+    }
+
+    error "could not check higher version: no supported file names"
+  }
+
+  #
+  # NOTE: This procedure attempts to guess a package name based on a list of
+  #       its files.  It relies upon the fact that all packages must include
+  #       a package index file.  The language argument must be one of the
+  #       literal strings "eagle", "tcl", or "client".  The fileNames argument
+  #       must be the list of file names to be downloaded.  The package name,
+  #       if one can be detected, is returned; otherwise, an empty string will
+  #       be returned.
+  #
+  proc guessPackageNameFromFileNames { language fileNames } {
+    set packageIndexFileNameOnly [getPackageIndexFileName $language]
+
+    if {[string length $packageIndexFileNameOnly] > 0} then {
+      foreach fileName $fileNames {
+        set fileNameOnly [file tail $fileName]
+
+        if {$fileNameOnly eq $packageIndexFileNameOnly} then {
+          set directory [file dirname $fileName]
+
+          if {[string length $directory] > 0} then {
+            return [file tail $directory]
+          }
+        }
+      }
+    }
+
+    return ""
+  }
+
+  #
+  # NOTE: This procedure downloads a manitest from the package file server,
+  #       writing its contents to the specified local file name.  It can also
+  #       verify the OpenPGP signature.  The language argument must be one of
+  #       the literal strings "eagle", "tcl", or "client".  The version
+  #       argument must be one of the literal strings "8.4", "8.5", or "8.6"
+  #       when the language is "tcl" -OR- the literal string "1.0" when the
+  #       language is either "eagle" or "client".  The packageName argument
+  #       is a directory name relative to the language and version-specific
+  #       directory on the package file server and may be an empty string.
+  #       The fileNames argument is the list of file names to be downloaded.
+  #       The usePgp argument should be non-zero when an OpenPGP signature
+  #       needs to be verified for the downloaded file.
+  #
+  proc downloadAllPlatforms { language version packageName fileNames usePgp } {
+    variable baseUri
+    variable branchName
+    variable platformsUri
+    variable platformsUrn
+
+    #
+    # NOTE: Verify that the package name, language, and version are correct.
+    #
+    verifyPackageName $packageName
+    verifyLanguageAndVersion $language $version isClient
+
+    set temporaryDirectory [getUniqueTempDirectory pkgd_plat_]
+
+    set localFileName [file join $temporaryDirectory manifest.txt]
+    file mkdir [file dirname $localFileName]
+
+    #
+    # NOTE: First, build the final URI to download from the remote package
+    #       repository, performing any applicable substitutions in the URI
+    #       prior to using it as the basis for fetching the platform list.
+    #
+    set uri [subst $platformsUri]
+
+    #
+    # NOTE: Then, in one step, download the file from the package file
+    #       server and write it to the specified local file.  Also, make
+    #       sure it has a valid OpenPGP signature because all manifests on
+    #       the server should be signed.
+    #
+    downloadOneUriToFile $localFileName $uri $usePgp true
+
+    #
+    # NOTE: Initialize list of platforms to return.  This will be populated
+    #       based on the platform directories available in the downloaded
+    #       manfiest data.
+    #
+    set platforms [list]
+
+    #
+    # NOTE: Read the (OpenPGP verified) manifest data from the local file
+    #       and split it into lines.
+    #
+    set data [readFile $localFileName]; set lines [split $data \n]
+
+    #
+    # NOTE: Figure out the pattern to use when matching against the file
+    #       names in the manifest data.  If available, this will include
+    #       the package name; otherwise, platform names for all packages
+    #       will be considered.
+    #
+    if {[string length $packageName] == 0} then {
+      set packageName [guessPackageNameFromFileNames $language $fileNames]
+    }
+
+    if {[string length $packageName] > 0} then {
+      set pattern [file join $language $version * $packageName *]
+    } else {
+      set pattern [file join $language $version *]
+    }
+
+    #
+    # NOTE: For package files that are not part of the client package,
+    #       put them inside the "packages" sub-directory.
+    #
+    if {$isClient} then {
+      set index 2; # client/1.0/<neutral>/fileName.ext
+    } else {
+      set pattern [file join packages $pattern]
+      set index 3; # packages/tcl/8.4/<neutral>/pkgName1.0/fileName.ext
+    }
+
+    foreach line $lines {
+      if {[string range $line 0 1] eq "F "} then {
+        set fileName [lindex [split $line " "] 1]
+
+        if {[string match $pattern $fileName]} then {
+          set directory [lindex [file split $fileName] $index]
+
+          if {[string length $directory] > 0 && \
+              [lsearch -exact $platforms $directory] == -1} then {
+            lappend platforms $directory
+          }
+        }
+      }
+    }
+
+    if {[isEagle]} then {
+      file delete -recursive -- $temporaryDirectory
+    } else {
+      file delete -force -- $temporaryDirectory
+    }
+
+    return [lsort -unique $platforms]
+  }
+
+  #
+  # NOTE: This procedure downloads a single URI from the package file server
+  #       and writes the result to a local file.  The localFileName argument
+  #       is the file name where the downloaded file should be written.  The
+  #       The uri argument is the URI to download.  The usePgp argument should
+  #       be non-zero when the OpenPGP signature file needs to be verified for
+  #       the downloaded file.  The return value is undefined.
+  #
+  proc downloadOneUriToFile { localFileName uri usePgp forcePgp } {
+    #
+    # NOTE: Then, in one step, download the URI from the package file
+    #       server and write it to the specified local file.
+    #
+    writeFile $localFileName [getPackageFile $uri]
+
+    #
+    # NOTE: Is use of OpenPGP for signature verification enabled?  Also,
+    #       did we just download an OpenPGP signature file?
+    #
+    if {$usePgp} then {
+      #
+      # NOTE: Maybe attempt to verify the OpenPGP signature.  If this
+      #       fails, an error is raised.
+      #
+      maybeVerifyOpenPgpSignature $localFileName $forcePgp
+    }
+  }
+
+  #
+  # NOTE: This procedure downloads a single file from the package file server,
+  #       writing its contents to the specified local file name.  It can also
+  #       verify the OpenPGP signatures.  When an OpenPGP signature file is
+  #       downloaded, this procedure assumes the corresponding data file was
+  #       already downloaded (i.e. since OpenPGP needs both to perform the
+  #       signature checks).  The language argument must be one of the
+  #       literal strings "eagle", "tcl", or "client".  The version argument
+  #       must be one of the literal strings "8.4", "8.5", or "8.6" when the
+  #       language is "tcl" -OR- the literal string "1.0" when the language
+  #       is either "eagle" or "client".  The platform argument must be an
+  #       empty string -OR- one of the literal strings "msil" or "neutral", or
+  #       one of the values returned by the [getPlatform] procedure.  An empty
+  #       string means that the associated package does not require a specific
+  #       platform.  The fileName argument is a file name relative to the
+  #       language and version-specific directory on the package file server.
+  #       The localFileName argument is the file name where the downloaded
+  #       file should be written.  The usePgp argument should be non-zero when
+  #       the OpenPGP signature file needs to be verified for the downloaded
+  #       file.
+  #
+  proc downloadOneFile {
+          language version platform fileName localFileName usePgp } {
+    variable baseUri
+    variable branchName
+    variable downloadUri
+    variable downloadUrn
+
+    #
+    # NOTE: Verify that the package language, version, and platform are
+    #       correct.
+    #
+    verifyLanguageAndVersion $language $version isClient
+    verifyPlatform $platform platform
+
+    #
+    # NOTE: First, build the full relative file name to download from
+    #       the remote package repository.
+    #
+    set fileName [file join $language $version $platform $fileName]
+
+    #
+    # NOTE: For package files that are not part of the client package,
+    #       put them inside the "packages" sub-directory.
+    #
+    if {!$isClient} then {
+      set fileName [file join packages $fileName]
+    }
+
+    #
+    # NOTE: Perform any applicable substitutions in the URI prior to
+    #       using it as the basis for downloading the package file.
+    #
+    set uri [subst $downloadUri]
+
+    #
+    # NOTE: Then, in one step, download the file from the package file
+    #       server and write it to the specified local file.
+    #
+    downloadOneUriToFile $localFileName $uri $usePgp false
+  }
+
+  #
+  # NOTE: This procedure attempts to download a list of files, optionally
+  #       persisting them for subsequent uses by the target language.
+  #       The language argument must be one of the literal strings "eagle",
+  #       "tcl", or "client".  The version argument must be one of the
+  #       literal strings "8.4", "8.5", or "8.6" when the language is "tcl"
+  #       -OR- the literal string "1.0" when the language is either "eagle"
+  #       or "client".  The platform argument must be an empty string -OR-
+  #       one of the literal strings "msil" or "neutral", or one of the values
+  #       returned by the [getPlatform] procedure.  An empty string means
+  #       that the associated package does not require a specific platform.
+  #       The fileNames argument must be a well-formed list of file names to
+  #       download, each one relative to the language and version-specific
+  #       directory on the package file server.  The options argument must
+  #       be a dictionary of name/value pairs.  The -persistent option should
+  #       be non-zero if the downloaded files should be saved to permanent
+  #       storage for subsequent use.  The -usePgp option should be non-zero
+  #       when an OpenPGP signature file needs to be downloaded and verified
+  #       for each downloaded file.  The -useAutoPath option should be
+  #       non-zero to modify the auto-path to include the temporary or
+  #       persistent directories containing the downloaded files.  The
+  #       -allowUpdate option should be non-zero to allow existing package
+  #       files to be overwritten.
+  #
+  # <public>
+  proc downloadFiles { language version platform fileNames options } {
+    variable clientDirectory
+    variable persistentRootDirectory
+    variable viaInstall
+
+    set persistent [string is true -strict \
+        [getDictionaryValue $options -persistent]]
+
+    set overwrite [string is true -strict \
+        [getDictionaryValue $options -overwrite]]
+
+    set usePgp [string is true -strict \
+        [getDictionaryValue $options -usePgp]]
+
+    set useAutoPath [string is true -strict \
+        [getDictionaryValue $options -useAutoPath]]
+
+    set allowUpdate [string is true -strict \
+        [getDictionaryValue $options -allowUpdate]]
+
+    #
+    # NOTE: Verify that the package language, version, and platform are
+    #       correct.
+    #
+    verifyLanguageAndVersion $language $version isClient
+    verifyPlatform $platform platform
+
+    set temporaryDirectory [getUniqueTempDirectory pkgd_lib_]
+
+    if {$isClient} then {
+      set persistentDirectory $clientDirectory
+    } else {
+      verifyPersistentRootDirectory
+      set persistentDirectory $persistentRootDirectory
+    }
+
+    set downloadedFileNames [list]
+
+    foreach fileName $fileNames {
+      if {[string length $fileName] == 0 || \
+          [file pathtype $fileName] ne "relative"} then {
+        error [appendArgs \
+            "bad file name \"" $fileName "\", not relative"]
+      }
+
+      set directoryParts [file split [file dirname $fileName]]
+
+      if {[llength $directoryParts] == 0} then {
+        error [appendArgs \
+            "bad file name \"" $fileName "\", no directory parts"]
+      }
+
+      set directory(temporary) [file normalize [eval \
+          file join [list $temporaryDirectory] $directoryParts]]
+
+      set directory(persistent) [file normalize [eval \
+          file join [list $persistentDirectory] $directoryParts]]
+
+      set fileNameOnly [file tail $fileName]
+
+      set downloadFileName [file normalize [file join \
+          $directory(temporary) $fileNameOnly]]
+
+      if {[file exists $downloadFileName]} then {
+        error [appendArgs \
+            "temporary file name \"" $downloadFileName \
+            "\" already exists"]
+      }
+
+      if {$persistent || $viaInstall} then {
+        if {!$overwrite} then {
+          set persistentFileName [file normalize [file join \
+              $directory(persistent) $fileNameOnly]]
+
+          if {[file exists $persistentFileName]} then {
+            continue
+          }
+        }
+      }
+
+      file mkdir [file dirname $downloadFileName]
+
+      downloadOneFile $language $version $platform \
+          $fileName $downloadFileName $usePgp
+
+      lappend downloadedFileNames [list \
+          $fileNameOnly $directory(temporary) $directory(persistent)]
+
+      if {$usePgp && \
+          ![isOpenPgpSignatureFileName $downloadFileName true]} then {
+        downloadOneFile $language $version $platform \
+            [appendArgs $fileName .asc] \
+            [appendArgs $downloadFileName .asc] $usePgp
+
+        lappend downloadedFileNames [list \
+            [appendArgs $fileNameOnly .asc] $directory(temporary) \
+            $directory(persistent)]
+      }
+    }
+
+    set downloadDirectories [list]
+
+    foreach downloadedFileName $downloadedFileNames {
+      set directory(temporary) [lindex $downloadedFileName 1]
+
+      if {$persistent || $viaInstall} then {
+        set fileNameOnly [lindex $downloadedFileName 0]
+        set directory(persistent) [lindex $downloadedFileName 2]
+
+        file mkdir $directory(persistent)
+        set command [list file copy]
+
+        #
+        # NOTE: When updating the package repository client files, always
+        #       use the -force option to overwrite existing files.  Also,
+        #       if we are allow updates, use the -force option.
+        #
+        if {$isClient || $allowUpdate} then {
+          lappend command -force
+        }
+
+        lappend command --
+        lappend command [file join $directory(temporary) $fileNameOnly]
+        lappend command [file join $directory(persistent) $fileNameOnly]
+
+        eval $command
+
+        lappend downloadDirectories $directory(persistent)
+      } else {
+        lappend downloadDirectories $directory(temporary)
+      }
+    }
+
+    #
+    # NOTE: Does the package need to be persisted locally?  This can be set
+    #       via the direct caller or via the installer tool.
+    #
+    set addPersistentDirectoryToAutoPath false
+
+    if {$persistent || $viaInstall} then {
+      #
+      # NOTE: In Eagle, a slightly different command is required to delete
+      #       an entire directory tree.
+      #
+      if {[isEagle]} then {
+        file delete -recursive -- $temporaryDirectory
+      } else {
+        file delete -force -- $temporaryDirectory
+      }
+
+      #
+      # NOTE: When the target language is native Tcl, try to create the
+      #       "root" package index, if necessary.
+      #
+      if {$language eq "tcl"} then {
+        maybeCreateRootTclPackageIndex
+        set addPersistentDirectoryToAutoPath true
+      }
+    }
+
+    #
+    # NOTE: Sort the list of directories that downloaded files were written
+    #       to, removing any duplicates in the process.
+    #
+    set downloadDirectories [lsort -unique $downloadDirectories]
+
+    if {$useAutoPath} then {
+      #
+      # NOTE: The auto-path, for whatever language this package belongs to,
+      #       needs to be modified.
+      #
+      if {$addPersistentDirectoryToAutoPath} then {
+        #
+        # NOTE: The downloaded package was persisted -AND- will be handled
+        #       by the "root" package index; therefore, just make sure the
+        #       package persistence root directory is in the auto-path and
+        #       then return only that directory in the result.
+        #
+        maybeAddToAutoPath $language $persistentDirectory
+        set downloadDirectories [list $persistentDirectory]
+      } else {
+        #
+        # NOTE: Check each unique download directory for a package index
+        #       file.  If a directory has a package index for the target
+        #       language, add to the auto-path for the target language.
+        #
+        set packageIndexFileNameOnly [getPackageIndexFileName $language]
+
+        if {[string length $packageIndexFileNameOnly] > 0} then {
+          foreach downloadDirectory $downloadDirectories {
+            if {[file exists [file join \
+                $downloadDirectory $packageIndexFileNameOnly]]} then {
+              addToAutoPath $language $downloadDirectory
+            }
+          }
+        }
+      }
+    }
+
+    #
+    # NOTE: Always return the list of directories that were actually added
+    #       to the auto-path, if any.
+    #
+    return $downloadDirectories
+  }
+
+  #
+  # NOTE: This procedure adds temporary package directories to the auto-path
+  #       of the specified language (i.e. native Tcl or Eagle).  Directories
+  #       will not be added if already present.  The language argument must
+  #       be the literal string "eagle" or the literal string "tcl".  The
+  #       pattern argument is the optional pattern to match against each of
+  #       the candidate temporary package directories.  If the pattern is an
+  #       empty string then all candidate temporary package directories will
+  #       be added to the auto-path; otherwise, the pattern will be matched
+  #       against the final portion of the temporary package directory name
+  #       and only those temporary package directories that actually match
+  #       the pattern will be added to the auto-path.  The options argument
+  #       must be a dictionary of name/value pairs.  This procedure does not
+  #       currently support any options.  This procedure may raise script
+  #       errors.  This procedure assumes the local temporary directory is
+  #       writable only by applications that are implicitly trusted by the
+  #       current user.  If this assumption does not hold on your platform,
+  #       DO NOT USE THIS PROCEDURE AS IT MAY BE UNSAFE.
+  #
+  # <public>
+  proc maybeAddTemporaryPackagesToAutoPath { language options {pattern ""} } {
+    variable temporaryRootDirectory
+    variable verboseTemporaryDirectory
+
+    #
+    # NOTE: Initially, no temporary package directories have been added
+    #       to the auto-path.
+    #
+    set result [list]; set packageNames [list]
+
+    #
+    # NOTE: What is the package index file name for this language?  Each
+    #       candidate temporary package directory will be checked to see
+    #       if it contains this file; otherwise, it will not be added to
+    #       the auto-path.
+    #
+    set packageIndexFileNameOnly [getPackageIndexFileName $language]
+
+    #
+    # HACK: Obtain the list of candidate temporary package directories
+    #       that may need to be added to the auto-path.  The prefix we
+    #       use here is considered "well-known" by this package.
+    #
+    set directories(1) [lsort [glob -nocomplain -types {d} \
+        [file join $temporaryRootDirectory pkgd_lib_*]]]
+
+    foreach directory(1) $directories(1) {
+      set directories(2) [lsort [glob -nocomplain -types {d} \
+          [file join $directory(1) *]]]
+
+      foreach directory(2) $directories(2) {
+        set directoryNameOnly(2) [file tail $directory(2)]
+        set packageName $directoryNameOnly(2); # HACK: Well-known.
+
+        if {[lsearch -exact $packageNames $packageName] == -1} then {
+          if {[string length $pattern] == 0 || \
+              [string match $pattern $directoryNameOnly(2)]} then {
+            if {[string length $packageIndexFileNameOnly] == 0 || \
+                [file exists [file join $directory(2) \
+                    $packageIndexFileNameOnly]]} then {
+              if {[maybeAddToAutoPath $language $directory(2)]} then {
+                lappend packageNames $directoryNameOnly(2)
+                lappend result $directory(2)
+
+                if {$verboseTemporaryDirectory} then {
+                  pkgLog [appendArgs \
+                      "added temporary package directory named \"" \
+                      $directory(2) "\" to auto-path..."]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This package requires the package repository client package.
+  #
+  package require Eagle.Package.Repository
+
+  #
+  # NOTE: This package requires that support for namespaces, which is an
+  #       optional feature of Eagle, must be enabled.
+  #
+  if {[isEagle] && ![namespace enable]} then {
+    error "namespaces must be enabled for this package"
+  }
+
+  #
+  # NOTE: Attempt to read optional settings file now.  This may override
+  #       one or more of the variable setup in the next step.
+  #
+  ::PackageRepository::maybeReadSettingsFiles [info script]
+
+  #
+  # NOTE: Setup the variables, within this namespace, used by this script.
+  #
+  setupDownloadVars [info script] false
+
+  #
+  # NOTE: Setup the server, version, and URI variables, in this namespace,
+  #       that are used by this script.
+  #
+  setupDownloadServerVars false
+  setupDownloadVersionVars false
+  setupDownloadUriVars false
+
+  #
+  # NOTE: If necessary, add the package persistence root directory to the
+  #       auto-path for the current language.  This will only be done if
+  #       it falls outside of the existing auto-path.
+  #
+  variable persistentRootDirectory
+
+  maybeAddToAutoPath [expr {[isEagle] ? "eagle" : "tcl"}] \
+      $persistentRootDirectory
+
+  #
+  # NOTE: Provide the package to the interpreter.
+  #
+  package provide Eagle.Package.Downloader 1.0.10
+}
+

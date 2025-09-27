@@ -1,0 +1,12 @@
+## Package Client Toolset
+
+# All package binaries, indexes, etc.
+packages/
+
+# Fossil SCM specific files
+_FOSSIL_
+.fslckout
+manifest
+
+# macOS specific files
+.DS_Store

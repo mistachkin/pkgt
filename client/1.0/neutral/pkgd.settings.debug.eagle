@@ -1,0 +1,35 @@
+###############################################################################
+#
+# pkgd.settings.debug.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Package Downloader Client Debug Settings
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: These settings apply to the "pkgd.eagle" script.
+#
+namespace eval ::PackageDownloader {
+  #
+  # NOTE: This setting overrides the local directory where packages
+  #       are persisted ("permanently") for use by the interpreter.
+  #
+  variable persistentRootDirectory [file join \
+      [::PackageRepository::getFileTempDirectory] pkgd_override]
+
+  #
+  # NOTE: These settings enable detailed diagnostic output from the
+  #       the URI downloader used by native Tcl -AND- the temporary
+  #       directory handling subsystem.
+  #
+  variable quiet false; # DEFAULT: true
+  variable verboseTemporaryDirectory true; # DEFAULT: false
+}

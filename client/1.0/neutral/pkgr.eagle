@@ -1,0 +1,2768 @@
+###############################################################################
+#
+# pkgr.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Package Repository Client
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::PackageRepository {
+  #
+  # NOTE: If there is an "Eagle1.0" sub-directory present right beneath where
+  #       this script was evaluated from, add it to the auto-path; otherwise,
+  #       we assume that we are running from inside the source tree.  In that
+  #       case, modify the auto-path to include the "Eagle1.0" sub-directory
+  #       within "externals".  Only native Tcl needs to be able to locate the
+  #       packages from the sub-directory being added to the auto-path here
+  #       because they were already shipped in the Eagle core script library
+  #       (as of Beta 37).  The expression used for Eagle detection here was
+  #       stolen from the Eagle core script library [isEagle] procedure.  If
+  #       the necessary Eagle sub-packages are somehow already loaded, skip
+  #       modifying the auto-path.
+  #
+  variable pkgr_path; # DEFAULT: <unset>
+
+  if {![info exists pkgr_path]} then {
+    if {![info exists ::tcl_platform(engine)] || \
+        [string compare -nocase eagle $::tcl_platform(engine)] != 0} then {
+      #
+      # NOTE: Always save the fully qualified directory name containing this
+      #       script file.
+      #
+      set pkgr_path [file normalize [file dirname [info script]]]
+
+      #
+      # NOTE: Check for the necessary Eagle sub-packages that contain shared
+      #       script code that we need.  If they are all already present, do
+      #       nothing.
+      #
+      if {[catch {
+        package present Eagle.Platform
+        package present Eagle.Auxiliary
+        package present Eagle.File
+      }]} then {
+        #
+        # NOTE: Check for the "Eagle1.0" sub-directory right underneath our
+        #       directory.  Fallback to going up three directory levels and
+        #       looking in the "externals" sub-directory as that will be the
+        #       location within source checkouts.
+        #
+        if {[file isdirectory [file join $pkgr_path Eagle1.0]]} then {
+          lappend ::auto_path [file join $pkgr_path Eagle1.0]
+        } else {
+          lappend ::auto_path [file join [file dirname [file dirname \
+              [file dirname $pkgr_path]]] externals Eagle lib Eagle1.0]
+        }
+      }
+    }
+  }
+
+  variable pkgr_harpy_path; # DEFAULT: <unset>
+
+  if {![info exists pkgr_harpy_path]} then {
+    set pkgr_harpy_path [file normalize [file dirname [info script]]]
+
+    if {![file isfile [file join $pkgr_harpy_path sign.eagle]]} then {
+      set pkgr_harpy_path [file join [file dirname [file dirname \
+          [file dirname $pkgr_harpy_path]]] externals Harpy Tools]
+    }
+  }
+
+  #
+  # NOTE: This package requires several packages from the Eagle core script
+  #       library, even when it is being used by native Tcl.  If necessary,
+  #       prior to evaluating this file in native Tcl, its auto-path should
+  #       be modified to include an "Eagle1.0" directory (i.e. a directory
+  #       containing the Eagle core script library files "auxiliary.eagle",
+  #       "file1.eagle", and "platform.eagle").
+  #
+  package require Eagle.Platform
+  package require Eagle.Auxiliary
+  package require Eagle.File
+
+  #
+  # NOTE: This block is intended to be evaluated successfully by native Tcl
+  #       only.  It serves two purposes:
+  #
+  #       1. Import the Eagle core script library procedures that are used
+  #          by this package into the global namespace.
+  #
+  #       2. Unset the "pkgr_path" (namespace) variable that was created by
+  #          the auto-path adjustment script fragment (above).
+  #
+  if {[info exists pkgr_path]} then {
+    catch {
+      ::Eagle::exportAndImportPackageCommands ::Eagle \
+          [list addToPath appendArgs getDictionaryValue \
+          isEagle isWindows readFile writeFile] false false
+    }
+
+    #
+    # NOTE: Manually load package containing some common procedures that
+    #       are needed by this package.
+    #
+    source [file join $pkgr_path common.tcl]
+
+    #
+    # NOTE: Unset the "pkgr_path" variable as it will no longer be needed
+    #       after this point.
+    #
+    unset -nocomplain pkgr_path
+
+    #
+    # NOTE: Attempt to import the procedures exposed by the common tools
+    #       package.
+    #
+    namespace import ::Eagle::Tools::Common::getFileViaHttp
+  }
+
+  #
+  # NOTE: This procedure is used to provide a TIP #194 compatible [apply]
+  #       command to the native Tcl 8.4 interpreter.  Eagle and native Tcl
+  #       8.5 (or higher) have this command built-in.  The lambdaExpr
+  #       argument must be a list with two or three elements.  The first
+  #       element is the list of arguments to the procedure.  The second
+  #       element is the body of the procedure.  The third element is the
+  #       target namespace for the procedure.  If the third element is not
+  #       specified, the global namespace is used.  Any remaining arguments
+  #       are passed to the procedure verbatim.
+  #
+  if {[llength [info commands ::apply]] == 0} then {
+    proc ::apply { lambdaExpr args } {
+      set length [llength $lambdaExpr]
+
+      if {$length < 2 || $length > 3} {
+        error [appendArgs \
+            "can't interpret \"" $lambdaExpr "\" as a lambda expression"]
+      }
+
+      foreach {procArgs procBody procNamespace} $lambdaExpr {break}
+
+      set procNameSuffix [::PackageRepository::getUniqueSuffix 2]
+      set procName [appendArgs :: $procNamespace ::lambda_ $procNameSuffix]
+      set procPreBody {rename [lindex [info level 0] 0] "";}
+
+      proc $procName $procArgs [appendArgs $procPreBody $procBody]
+
+      return [uplevel 1 [list $procName] $args]
+    }
+  }
+
+  #
+  # NOTE: This procedure sets up the default values for all URN configuration
+  #       parameters used by the package repository client.  If the force
+  #       argument is non-zero, any existing values will be overwritten and
+  #       set back to their default values.
+  #
+  proc setupRepositoryServerVars { force } {
+    #
+    # NOTE: The URN, relative to the base URI, where the package repository
+    #       server may be contacted to lookup packages.
+    #
+    variable lookupUrn; # DEFAULT: pkgr_lookup
+
+    if {$force || ![info exists lookupUrn]} then {
+      set lookupUrn pkgr_lookup
+    }
+
+    #
+    # NOTE: The URN, relative to the base URI, where the package repository
+    #       server may be contacted to submit packages.
+    #
+    variable submitUrn; # DEFAULT: pkgr_submit
+
+    if {$force || ![info exists submitUrn]} then {
+      set submitUrn pkgr_submit
+    }
+  }
+
+  #
+  # NOTE: This procedure sets up the default values for all URI configuration
+  #       parameters used by the package repository client.  If the force
+  #       argument is non-zero, any existing values will be overwritten and
+  #       set back to their default values.
+  #
+  proc setupRepositoryUriVars { force } {
+    #
+    # NOTE: The base URI used to build the URIs for the package file server.
+    #
+    variable baseUri; # DEFAULT: https://tcl.to/r
+
+    if {$force || ![info exists baseUri]} then {
+      set baseUri https://tcl.to/r
+    }
+
+    #
+    # NOTE: The URI where the package repository server may be contacted to
+    #       lookup packages.
+    #
+    variable lookupUri; # DEFAULT: ${baseUri}/${lookupUrn}
+
+    if {$force || ![info exists lookupUri]} then {
+      set lookupUri {${baseUri}/${lookupUrn}}
+    }
+
+    #
+    # NOTE: The URI where the package repository server may be contacted to
+    #       submit packages.
+    #
+    variable submitUri; # DEFAULT: ${baseUri}/${submitUrn}
+
+    if {$force || ![info exists submitUri]} then {
+      set submitUri {${baseUri}/${submitUrn}}
+    }
+  }
+
+  #
+  # NOTE: This procedure returns a string argument value, which may contain
+  #       spaces, for use with the [exec] command.  The value argument is
+  #       the string value to format as an [exec] argument.
+  #
+  # <internal>
+  proc formatExecArgument { value } {
+    if {[isEagle]} then {
+      return [appendArgs \" $value \"]
+    } else {
+      return $value
+    }
+  }
+
+  #
+  # NOTE: This procedure returns a formatted, possibly version-specific,
+  #       package name, for use in logging.  The package argument is the
+  #       name of the package.  The version argument is the version of the
+  #       package.
+  #
+  proc formatPackageName { package version } {
+    return [string trim [appendArgs $package " " $version]]
+  }
+
+  #
+  # NOTE: This procedure returns a formatted script result.  If the string
+  #       result is empty, only the return code is used.  The code argument
+  #       must be an integer Tcl return code (e.g. from [catch]) and the
+  #       result argument is the script result or error message.
+  #
+  proc formatResult { code result } {
+    switch -exact -- $code {
+      0 {set codeString ok}
+      1 {set codeString error}
+      2 {set codeString return}
+      3 {set codeString break}
+      4 {set codeString continue}
+      default {set codeString [appendArgs unknown( $code )]}
+    }
+
+    if {[string length $result] > 0} then {
+      return [appendArgs \
+          "code " $codeString ", result " [list $result]]
+    } else {
+      return $codeString
+    }
+  }
+
+  #
+  # NOTE: This procedure emits a message to the package repository client
+  #       log.  The string argument is the content of the message to emit.
+  #
+  proc pkgLog { string } {
+    catch {
+      tclLog [appendArgs [pid] " : " [clock seconds] " : pkgr : " $string]
+    }
+  }
+
+  #
+  # NOTE: This procedure attempts to determine if a string is a valid list
+  #       and returns non-zero when that is true.  The value argument is
+  #       the string to check.
+  #
+  proc stringIsList { value } {
+    if {[isEagle]} then {
+      return [string is list $value]
+    } else {
+      global tcl_version
+
+      if {[info exists tcl_version] && $tcl_version >= 8.5} then {
+        return [string is list $value]
+      } elseif {[catch {llength $value}] == 0} then {
+        return true
+      } else {
+        return false
+      }
+    }
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified string value
+  #       looks like a Harpy (script) certificate.  The value argument is
+  #       the string to check.  The value 14 used within this procedure is
+  #       the length of the literal string "</Certificate>".
+  #
+  # <public>
+  proc isHarpyCertificate { value } {
+    set value [string trim $value]
+    set length [string length $value]
+
+    if {$length == 0 || ([string first [string trim {
+      <?xml version="1.0" encoding="utf-8"?>
+    }] $value] == 0 && [string first [string trim {
+      <Certificate xmlns="https://eagle.to/2011/harpy"
+    }] $value] != -1 && [string first [string trim {
+      </Certificate>
+    }] $value] == ($length - 14))} then {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified string value
+  #       looks like an OpenPGP signature.  The value argument is the string
+  #       to check.  The value 27 used within this procedure is the length
+  #       of the literal string "-----END PGP SIGNATURE-----".
+  #
+  # <public>
+  proc isOpenPgpSignature { value } {
+    set value [string trim $value]
+    set length [string length $value]
+
+    if {$length == 0 || ([string first [string trim {
+      -----BEGIN PGP SIGNATURE-----
+    }] $value] == 0 && [string first [string trim {
+      -----END PGP SIGNATURE-----
+    }] $value] == ($length - 27))} then {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  #
+  # NOTE: This procedure returns the fully qualified name of the directory
+  #       where temporary files should be written.  The envVarName argument
+  #       is an optional extra environment variable to check (first).
+  #
+  # <public>
+  proc getFileTempDirectory { {envVarName ""} } {
+    global env
+
+    if {[string length $envVarName] > 0 && \
+        [info exists env($envVarName)]} then {
+      return $env($envVarName)
+    } elseif {[info exists env(TEMP)]} then {
+      return $env(TEMP)
+    } elseif {[info exists env(TMP)]} then {
+      return $env(TMP)
+    } else {
+      if {[string length $envVarName] > 0} then {
+        set defEnvVarName $envVarName
+      } elseif {[isWindows]} then {
+        set defEnvVarName TEMP
+      } else {
+        set defEnvVarName TMP
+      }
+
+      error [appendArgs \
+          "please set the \"" $defEnvVarName \
+          "\" environment variable to the path of a temporary directory"]
+    }
+  }
+
+  #
+  # NOTE: This procedure returns a unique temporary file name.  A script
+  #       error is raised if this task cannot be accomplished.  There are
+  #       no arguments.
+  #
+  proc getFileTempName {} {
+    if {[isEagle]} then {
+      return [file tempname]
+    } else {
+      set directory [getFileTempDirectory PKGR_TEMP]
+      set counter [expr {[pid] ^ int(rand() * 0xFFFF)}]
+
+      while {1} {
+        set fileNameOnly [format tcl%04X.tmp $counter]
+        set fileName [file join $directory $fileNameOnly]
+
+        if {![file exists $fileName]} then {
+          return $fileName
+        }
+
+        incr counter
+      }
+    }
+  }
+
+  #
+  # NOTE: This procedure attempts to check for an OpenPGP installation being
+  #       installed at the default location.  There are no arguments.  If the
+  #       OpenPGP installation is detected and is not yet present in the PATH,
+  #       an attempt will be made to add it.  Non-zero will be returned if the
+  #       OpenPGP installation directory was successfully detected and added
+  #       to the PATH -OR- detecting and adding it was not necessary because
+  #       it already appeared to be available for use.
+  #
+  # <internal>
+  proc probeForOpenPgpInstallation {} {
+    global env
+    variable openPgpFileNamesOnly
+    variable openPgpInstalledDirectories
+
+    if {[catch {openPgpMustBeInstalled}] == 0} then {
+      return true
+    }
+
+    if {![info exists openPgpFileNamesOnly]} then {
+      return false
+    }
+
+    if {![info exists openPgpInstalledDirectories]} then {
+      return false
+    }
+
+    if {[isWindows]} then {
+      if {[info exists env(ProgramFiles(x86))]} then {
+        set programFiles $env(ProgramFiles\(x86\))
+      } elseif {[info exists env(ProgramFiles)]} then {
+        set programFiles $env(ProgramFiles)
+      } else {
+        return false
+      }
+    }
+
+    foreach directory $openPgpInstalledDirectories {
+      if {[isWindows]} then {
+        set subDirectory [file join $programFiles $directory]
+      } else {
+        set subDirectory $directory
+      }
+
+      if {[file isdirectory $subDirectory]} then {
+        foreach fileNameOnly $openPgpFileNamesOnly {
+          set fileName [file join $subDirectory $fileNameOnly]
+
+          if {[file exists $fileName]} then {
+            pkgLog [appendArgs \
+                "the OpenPGP directory is being initialized to \"" \
+                $subDirectory "\" based on OpenPGP file name \"" \
+                $fileNameOnly \"]
+
+            return [addToPath $subDirectory]
+          }
+        }
+      }
+    }
+
+    return false
+  }
+
+  #
+  # NOTE: This procedure attempts to verify that a configured implementation
+  #       of OpenPGP is installed locally.  There are no arguments.  Script
+  #       errors are raised if any problems are found.  The return value is
+  #       undefined.
+  #
+  # <public>
+  proc openPgpMustBeInstalled {} {
+    variable openPgpFileNameOnly
+    variable openPgpFileNamesOnly
+    variable openPgpInstalledCommand
+    variable openPgpInstalledPattern
+
+    set message {
+      Cannot use OpenPGP: it does not appear to be installed.
+
+      GNU Privacy Guard (GPG) may be downloaded from "https://www.gnupg.org/"
+      and then installed.  Signed binaries for Windows may be available from
+      "https://www.gpg4win.org/".
+
+      Alternatively, it may be possible to install GNU Privacy Guard (GPG) via
+      the package management subsystem included with your operating system.
+    }
+
+    set found false
+
+    foreach fileNameOnly $openPgpFileNamesOnly {
+      if {[isEagle]} then {
+        if {[catch {
+          eval exec -success Success [subst $openPgpInstalledCommand]
+        } result] == 0} then {
+          set found true; break
+        }
+      } else {
+        if {[catch {
+          eval exec [subst $openPgpInstalledCommand]
+        } result] == 0} then {
+          set found true; break
+        }
+      }
+    }
+
+    if {$found} then {
+      #
+      # NOTE: Was this procedure already run -AND- did it actually find a
+      #       viable OpenPGP file name?
+      #
+      if {[info exists openPgpFileNameOnly]} then {
+        #
+        # NOTE: If the OpenPGP file name that we found before (?) does not
+        #       match what we already have, issue a log message.
+        #
+        if {$fileNameOnly ne $openPgpFileNameOnly} then {
+          pkgLog [appendArgs \
+              "the OpenPGP file name is being changed from \"" \
+              $openPgpFileNameOnly "\" to \"" $fileNameOnly \"]
+
+          set openPgpFileNameOnly $fileNameOnly
+        }
+      } else {
+        #
+        # NOTE: Configure the OpenPGP file name to the one that was just
+        #       found.
+        #
+        pkgLog [appendArgs \
+            "the OpenPGP file name is being initialized to \"" \
+            $fileNameOnly \"]
+
+        set openPgpFileNameOnly $fileNameOnly
+      }
+    } else {
+      #
+      # NOTE: If no viable OpenPGP file name was found, raise the error
+      #       message.
+      #
+      error $message
+    }
+
+    if {![info exists result] || \
+        ![regexp -- $openPgpInstalledPattern $result]} then {
+      error "cannot use OpenPGP: unknown or unsupported version"
+    }
+
+    return ""
+  }
+
+  #
+  # NOTE: This procedure attempts to verify the OpenPGP signature contained
+  #       in the specified (named) file.  Non-zero is only returned if the
+  #       OpenPGP signature is verified successfully.  A script error should
+  #       not be raised by this procedure.  The fileName argument must be
+  #       the fully qualified path and file name of the OpenPGP signature
+  #       file to verify.
+  #
+  # <public>
+  proc verifyOpenPgpSignature { fileName } {
+    variable openPgpFileNameOnly
+    variable openPgpVerifyCommand
+
+    if {![info exists openPgpFileNameOnly]} then {
+      return false
+    }
+
+    if {[isEagle]} then {
+      set fileName [formatExecArgument $fileName]
+
+      if {[catch {
+        eval exec -success Success [subst $openPgpVerifyCommand]
+      }] == 0} then {
+        return true
+      }
+    } else {
+      if {[catch {
+        eval exec [subst $openPgpVerifyCommand] 2>@1
+      }] == 0} then {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  #
+  # NOTE: This procedure returns the name of the file containing the OpenPGP
+  #       passphrase.  This procedure is only used when creating an OpenPGP
+  #       signature.  There are no arguments.
+  #
+  proc getOpenPgpPassphraseFile {} {
+    global env
+
+    if {[info exists env(GPG_PASSPHRASE_FILE)]} then {
+      set fileName [file normalize $env(GPG_PASSPHRASE_FILE)]
+
+      if {[file exists $fileName]} then {
+        return $fileName
+      } else {
+        error "cannot sign with OpenPGP: passphrase file does not exist"
+      }
+    } else {
+      error "cannot sign with OpenPGP: passphrase file is not configured"
+    }
+  }
+
+  #
+  # NOTE: This procedure returns a list of the same size as the list argument
+  #       value.  Each element will have one pair of surrounding double quote
+  #       characters removed -IF- they are the first and last non-whitespace
+  #       character of that element.  A script error should not be raised by
+  #       this procedure.
+  #
+  proc dequoteList { list } {
+    set result [list]
+
+    foreach element $list {
+      set trimElement [string trim $element]
+      set trimLength [string length $trimElement]
+
+      if {$trimLength >= 2 && \
+          [string index $trimElement 0] eq "\"" && \
+          [string index $trimElement end] eq "\""} then {
+        lappend result [string range $trimElement 1 end-1]
+      } else {
+        lappend result $element; # verbatim
+      }
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure attempts to create a Harpy (script) certificate for
+  #       the specified (named) file.  Non-zero is only returned if the Harpy
+  #       (script) certificate is created successfully.  A script error should
+  #       not be raised by this procedure.  The fileName argument must be the
+  #       fully qualified path and file name of the file to be signed.  This
+  #       procedure assumes that the Harpy package for Eagle is installed and
+  #       ready for use (i.e. it can find a valid license certificate).
+  #
+  # <internal>
+  proc createHarpyCertificate { fileName } {
+    global env
+    variable harpySignCommand
+    variable pkgr_harpy_path
+
+    set toolFileName \
+        [file nativename [file join $pkgr_harpy_path sign.eagle]]
+
+    set scriptFileName [file nativename $fileName]
+
+    if {[info exists env(PKGR_VENDOR)]} then {
+      set vendor $env(PKGR_VENDOR); # NOTE: Configured default.
+    } else {
+      set vendor "Mistachkin Systems"; # NOTE: System default.
+    }
+
+    if {[isEagle]} then {
+      set runtimeCommandLine [getRuntimeCommandLine [getShellExecutableName]]
+      set toolFileName [formatExecArgument $toolFileName]
+      set scriptFileName [formatExecArgument $scriptFileName]
+      set vendor [formatExecArgument $vendor]
+
+      if {[set code [catch {
+        eval exec -success Success [subst $harpySignCommand]
+      } error]] == 0} then {
+        return true
+      } else {
+        pkgLog [appendArgs \
+            "Harpy certificate was not created (from Eagle): " \
+            [formatResult $code $error]]
+      }
+    } else {
+      #
+      # HACK: Make sure that Eagle is loaded into this process so that we
+      #       can figure out the shell for it and then [exec] out to that
+      #       shell.
+      #
+      makeEagleReady
+
+      set runtimeCommandLine [dequoteList [eagle {
+        apply [list [list] {
+          set directory [file dirname [lindex [info assembly] end]]
+
+          foreach fileNameOnly [list EagleShell.dll EagleShell.exe] {
+            set fileName [file join $directory $fileNameOnly]
+
+            if {[file exists $fileName]} then {
+              return [getRuntimeCommandLine $fileName]
+            }
+          }
+        }]
+      }]]
+
+      if {[set code [catch {
+        eval exec [subst $harpySignCommand] 2>@1
+      } error]] == 0} then {
+        return true
+      } else {
+        pkgLog [appendArgs \
+            "Harpy certificate was not created (from Tcl): " \
+            [formatResult $code $error]]
+      }
+    }
+
+    return false
+  }
+
+  #
+  # NOTE: This procedure attempts to create an OpenPGP signature for the
+  #       specified (named) file.  Non-zero is only returned if the OpenPGP
+  #       signature is created successfully.  A script error should not be
+  #       raised by this procedure.  The fileName argument must be the fully
+  #       qualified path and file name of the file to be signed.
+  #
+  # <public>
+  proc createOpenPgpSignature { fileName } {
+    global env
+    variable openPgpFileNameOnly
+    variable openPgpSignCommand
+
+    if {![info exists openPgpFileNameOnly]} then {
+      return false
+    }
+
+    if {[isEagle]} then {
+      set fileName [formatExecArgument $fileName]
+
+      if {[catch {
+        eval exec -success Success [subst $openPgpSignCommand]
+      }] == 0} then {
+        return true
+      }
+    } else {
+      if {[catch {
+        eval exec [subst $openPgpSignCommand] 2>@1
+      }] == 0} then {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  #
+  # NOTE: This procedure attempts to import the OpenPGP keys contained in
+  #       the specified (named) file.  Non-zero is only returned if the
+  #       OpenPGP keys are imported successfully.  A script error should
+  #       not be raised by this procedure.  The fileName argument must be
+  #       the fully qualified path and file name of the OpenPGP key file
+  #       to import.  This procedure is only intended to be used from the
+  #       "pkgr_setup.eagle" tool script and may go away in later versions
+  #       of this package.
+  #
+  # <internal>
+  proc importOpenPgpKeyFile { fileName varName } {
+    variable openPgpFileNameOnly
+    variable openPgpImportCommand
+    variable openPgpImportPattern
+
+    if {![info exists openPgpFileNameOnly]} then {
+      return false
+    }
+
+    if {[string length $varName] > 0} then {
+      upvar 1 $varName result
+    }
+
+    if {[isEagle]} then {
+      set fileName [formatExecArgument $fileName]
+
+      if {[catch {
+        eval exec -nocarriagereturns -stdout output -stderr error \
+            [subst $openPgpImportCommand]
+      } result] == 0} then {
+        set result [appendArgs $output $error]
+      } else {
+        return false
+      }
+    } else {
+      if {[catch {
+        eval exec [subst $openPgpImportCommand] 2>@1
+      } result]} then {
+        return false
+      }
+    }
+
+    if {![info exists result] || \
+        ![regexp -line -- $openPgpImportPattern $result]} then {
+      return false
+    }
+
+    return true
+  }
+
+  #
+  # NOTE: This procedure returns the prefix for fully qualified variable
+  #       names that MAY be present in the global namespace.  There are
+  #       no arguments.
+  #
+  proc getLookupVarNamePrefix {} {
+    return ::pkgr_; # TODO: Make non-global?
+  }
+
+  #
+  # NOTE: This procedure returns a name suffix (directory, variable, etc)
+  #       that is unique to the running process at the current point in
+  #       time.  It is used (internally) to avoid name collisions with any
+  #       preexisting variables or commands that may be present in the
+  #       global namespace.  The paranoia argument represents the relative
+  #       level of paranoia required by the caller; the higher this level,
+  #       the more uniqueness is required.
+  #
+  # <public>
+  proc getUniqueSuffix { {paranoia 1} } {
+    set result [string trim [pid] -]
+
+    if {$paranoia > 0} then {
+      append result _ [string trim [clock seconds] -]
+    }
+
+    if {$paranoia > 1} then {
+      append result _ [string trim \
+          [clock clicks -milliseconds] -]; # TODO: Bad?
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure returns the list of API keys to use when looking
+  #       up packages via the package repository server.  An empty list
+  #       is returned if no API keys are currently configured.  The prefix
+  #       argument is an extra variable name prefix to check prior to any
+  #       that are already configured.  The prefixOnly argument should be
+  #       non-zero to exclude any API keys other than those based on the
+  #       prefix specified by the caller.
+  #
+  # <internal>
+  proc getApiKeys { {prefix ""} {prefixOnly false} } {
+    global env
+    variable autoApiKeys
+
+    #
+    # NOTE: If the caller specified a variable name prefix, try to use it
+    #       first.
+    #
+    set prefixes [list]
+
+    if {[string length $prefix] > 0} then {
+      lappend prefixes $prefix
+    }
+
+    #
+    # NOTE: Next, fallback to the variable name prefix for this package,
+    #       unless the caller has forbidden us to do so.
+    #
+    if {!$prefixOnly} then {
+      lappend prefixes [getLookupVarNamePrefix]
+    }
+
+    #
+    # NOTE: Try each variable name prefix, in order, until a set of API
+    #       keys is found.
+    #
+    foreach prefix $prefixes {
+      #
+      # NOTE: If an empty prefix is seen, force it to use the "api_keys"
+      #       variable from the global namespace.
+      #
+      if {[string length $prefix] == 0} then {
+        set prefix ::; # TODO: Make non-global?
+      }
+
+      #
+      # NOTE: Check for the variable, in whatever namespace it resides,
+      #       and return its value verbatim if it exists.
+      #
+      set varName [appendArgs $prefix api_keys]
+
+      if {[info exists $varName]} then {
+        return [set $varName]
+      }
+
+      #
+      # NOTE: Fallback to using an environment variable with the same
+      #       base name and returns its value verbatim if it exists.
+      #
+      set varName [string map [list : ""] $varName]
+
+      if {[info exists env($varName)]} then {
+        return $env($varName)
+      }
+    }
+
+    #
+    # NOTE: If there is a default list of API keys, just return it,
+    #       unless the caller has forbidden us to do so.
+    #
+    if {!$prefixOnly && \
+        [info exists autoApiKeys] && [llength $autoApiKeys] > 0} then {
+      return $autoApiKeys
+    }
+
+    #
+    # NOTE: Otherwise, return the system default, which is "anonymous"
+    #       packages only (i.e. those without any owners).
+    #
+    return [list]
+  }
+
+  #
+  # NOTE: This procedure verifies the language specified by the caller.  The
+  #       language argument must be an empty string -OR- the literal string
+  #       "Eagle" or "Tcl".  This procedure may raise script errors.
+  #
+  # <internal>
+  proc verifyMetadataLanguage { language } {
+    if {[lsearch -exact [list "" Tcl Eagle] $language] == -1} then {
+      error "unsupported metadata language"
+    }
+  }
+
+  #
+  # NOTE: This procedure verifies that the specified value is indeed a valid
+  #       server identifier.  The serverId argument is the value to verify.
+  #       This procedure may raise script errors.
+  #
+  # <internal>
+  proc verifyServerId { serverId } {
+    if {[string length $serverId] > 0 && \
+        ![regexp -nocase -- {^[A-Z][0-9A-Z]*$} $serverId]} then {
+      error "server Id must be alphanumeric and start with a letter"
+    }
+  }
+
+  #
+  # NOTE: This procedure modifies the URN variables used by the package
+  #       repository client so that one or more alternative (private?)
+  #       backend repository servers may be used.  The serverId argument
+  #       must consist only of alphanumeric characters and it must begin
+  #       with a letter.
+  #
+  # <public>
+  proc useServerId { {serverId ""} } {
+    variable lookupUrn
+    variable submitUrn
+
+    verifyServerId $serverId
+
+    if {[string length $serverId] > 0} then {
+      #
+      # NOTE: Set the URN variables to values that should cause the
+      #       specified server Id to be used (assume the server Id
+      #       itself is valid and active).
+      #
+      set lookupUrn [appendArgs pkgr_lookup_ $serverId]
+      set submitUrn [appendArgs pkgr_submit_ $serverId]
+    } else {
+      #
+      # NOTE: Forcibly reset URN variables to their default values.
+      #
+      setupRepositoryServerVars true
+    }
+  }
+
+  #
+  # NOTE: This procedure returns the base URI for the package repository
+  #       server endpoint that is used to lookup packages.  There are no
+  #       arguments.
+  #
+  proc getLookupBaseUri {} {
+    global env
+    variable baseUri
+    variable lookupUri
+    variable lookupUrn
+
+    set varName [appendArgs [getLookupVarNamePrefix] lookup_base_uri]
+
+    if {[info exists $varName]} then {
+      return [set $varName]
+    }
+
+    set varName [string map [list : ""] $varName]
+
+    if {[info exists env($varName)]} then {
+      return $env($varName)
+    }
+
+    return [subst $lookupUri]
+  }
+
+  #
+  # NOTE: This procedure returns the base URI for the package repository
+  #       server endpoint that is used to submit packages.  There are no
+  #       arguments.
+  #
+  # <internal>
+  proc getSubmitBaseUri {} {
+    global env
+    variable baseUri
+    variable submitUri
+    variable submitUrn
+
+    set varName [appendArgs [getLookupVarNamePrefix] submit_base_uri]
+
+    if {[info exists $varName]} then {
+      return [set $varName]
+    }
+
+    set varName [string map [list : ""] $varName]
+
+    if {[info exists env($varName)]} then {
+      return $env($varName)
+    }
+
+    return [subst $submitUri]
+  }
+
+  #
+  # NOTE: This procedure returns the full URI to use when looking up a
+  #       specific package via the package repository server.  The apiKeys
+  #       argument is the list of API keys to use -OR- an empty list if a
+  #       public package is being looked up.  The package argument is the
+  #       name of the package being looked up, it cannot be an empty
+  #       string.  The version argument is the specific version being
+  #       looked up -OR- an empty string for any available version.  There
+  #       are no HTTP requests issued by this procedure; it simply returns
+  #       the URI to use.
+  #
+  proc getLookupUri { apiKeys package version } {
+    #
+    # NOTE: Fetch the base URI for the package repository server.  If it
+    #       is not available for some reason, just return an empty string
+    #       to the caller (i.e. as we cannot do anything productive).
+    #
+    set baseUri [getLookupBaseUri]
+
+    if {[string length $baseUri] == 0} then {
+      return ""
+    }
+
+    #
+    # NOTE: Build the HTTP request URI using the specified query parameter
+    #       values, escaping them as necessary.  Also, include the standard
+    #       query parameters with constant values for this request type.
+    #
+    set anonymousApiKey ""
+
+    if {[isEagle]} then {
+      if {[llength $apiKeys] > 0} then {
+        return [appendArgs \
+            $baseUri ?raw=1&method=lookup&apiKeys= [uri escape data \
+            [join $apiKeys ,]] &package= [uri escape data $package] \
+            &version= [uri escape data $version]]
+      } else {
+        return [appendArgs \
+            $baseUri ?raw=1&method=lookup&apiKey= [uri escape data \
+            $anonymousApiKey] &package= [uri escape data $package] \
+            &version= [uri escape data $version]]
+      }
+    } else {
+      package require http 2.0
+
+      if {[llength $apiKeys] > 0} then {
+        return [appendArgs \
+            $baseUri ? [::http::formatQuery raw 1 method lookup \
+            apiKeys [join $apiKeys ,] package $package version \
+            $version]]
+      } else {
+        return [appendArgs \
+            $baseUri ? [::http::formatQuery raw 1 method lookup \
+            apiKey $anonymousApiKey package $package version \
+            $version]]
+      }
+    }
+  }
+
+  #
+  # NOTE: This procedure returns the version of the package that should be
+  #       used to lookup the associated [package ifneeded] script -OR- an
+  #       empty string if no such version exists.  The package argument is
+  #       the name of the package, it cannot be an empty string.  The
+  #       version argument is the specific version being looked up -OR- an
+  #       empty string for any available version.
+  #
+  proc getIfNeededVersion { package version } {
+    if {[string length $version] > 0} then {
+      return $version
+    }
+
+    return [lindex [package versions $package] 0]
+  }
+
+  #
+  # NOTE: This procedure accepts a package requirement (spec) and returns
+  #       a simple package version, if possible.  An empty string will be
+  #       returned, if appropriate (i.e. any version should be allowed).
+  #       The requirement argument must be a package specification that
+  #       conforms to TIP #268.
+  #
+  proc packageRequirementToVersion { requirement } {
+    set result $requirement
+
+    if {[set index [string first - $result]] != -1} then {
+      incr index -1; set result [string range $result 0 $index]
+    }
+
+    if {[set index [string first a $result]] != -1 || \
+        [set index [string first b $result]] != -1} then {
+      incr index -1; set result [string range $result 0 $index]
+    }
+
+    if {$result eq "0"} then {
+      set result ""
+    } elseif {[regexp -- {^\d+$} $result]} then {
+      append result .0
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure issues an HTTP request that should return metadata
+  #       that can be used to load and/or provide the specified package.
+  #       The apiKeys argument is the list of API keys to use -OR- an empty
+  #       list if a public package is being looked up.  The package argument
+  #       is the name of the package, it cannot be an empty string.  The
+  #       version argument is the specific version being looked up -OR- an
+  #       empty string for any available version.  This procedure may raise
+  #       script errors.  All line-endings are normalized to Unix-style;
+  #       therefore, all script signatures must assume this.
+  #
+  proc getLookupData { apiKeys package version } {
+    variable verboseUriDownload
+
+    set uri [getLookupUri $apiKeys $package $version]
+
+    if {[string length $uri] == 0} then {
+      return ""
+    }
+
+    if {$verboseUriDownload} then {
+      pkgLog [appendArgs \
+          "attempting to download URI \"" $uri \"...]
+    }
+
+    if {[isEagle]} then {
+      set data [uri download -timeouttype network -inline $uri]
+    } else {
+      set data [getFileViaHttp \
+          $uri 20 stdout [expr {!$verboseUriDownload}] -binary true]
+    }
+
+    if {$verboseUriDownload} then {
+      pkgLog [appendArgs \
+          "raw response data is: " $data]
+    }
+
+    set data [string map [list &lt\; < &gt\; > &quot\; \" &amp\; &] $data]
+    set data [string map [list \r\n \n \r \n] $data]
+    set data [string trim $data]
+
+    return $data
+  }
+
+  #
+  # NOTE: This procedure attempts to extract the lookup code from the raw
+  #       HTTP response data.  The data argument is the raw HTTP response
+  #       data.  An empty string is returned if no lookup code is available.
+  #
+  # <internal>
+  proc getResponseCodeFromRawData { data } {
+    if {![stringIsList $data] || [llength $data] < 1} then {
+      return ""
+    }
+
+    return [lindex $data 0]
+  }
+
+  #
+  # NOTE: This procedure attempts to extract the lookup result from the raw
+  #       HTTP response data.  The data argument is the raw HTTP response
+  #       data.  An empty string is returned if no lookup result is available.
+  #
+  # <internal>
+  proc getResponseResultFromRawData { data } {
+    if {![stringIsList $data] || [llength $data] < 2} then {
+      return ""
+    }
+
+    return [lindex $data 1]
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified lookup response
+  #       code indicates success.  The code argument is the extracted HTTP
+  #       lookup response code.
+  #
+  # <internal>
+  proc isResponseCodeOk { code } {
+    #
+    # NOTE: The code must be the literal string "OK" for the package lookup
+    #       request to be considered successful.
+    #
+    return [expr {$code eq "OK"}]
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified string value is a
+  #       valid package name.  The emptyOk argument can be non-zero if the
+  #       caller wishes to permit an empty string.  This procedure is shared
+  #       with the server.
+  #
+  proc isValidPackageName { name {emptyOk false} } {
+    if {$emptyOk && [string length $name] == 0} then {
+      return true
+    }
+
+    return [regexp -- {^[A-Za-z][0-9A-Za-z\.]*$} $name]
+  }
+
+  #
+  # NOTE: This procedure was stolen from the "common.tcl" script used by the
+  #       package repository server.  It has been modified to support both
+  #       native Tcl and Eagle.  It should be noted here that TIP #268 syntax
+  #       is not supported by Eagle.  For native Tcl, the requirement argument
+  #       must be a package version or requirement conforming to the TIP #268
+  #       syntax.  For Eagle, the requirement argument must be a simple dotted
+  #       package version, with up to four components, without any 'a' or 'b'.
+  #       The emptyOk argument should be non-zero if an empty string should be
+  #       considered to be valid by the caller.  The rangeOk argument should
+  #       be non-zero if the version range syntax is allowed; this argument is
+  #       ignored for Eagle because it requires TIP #268 support.
+  #
+  proc isValidPackageRequirement { requirement rangeOk {emptyOk false} } {
+    if {$emptyOk && [string length $requirement] == 0} then {
+      return true
+    }
+
+    if {[isEagle]} then {
+      #
+      # NOTE: Eagle does not support TIP #268.  Use the built-in sub-command
+      #       that checks a version number.
+      #
+      return [string is version -strict $requirement]
+    } else {
+      #
+      # HACK: If a version range is not allowed, make sure that the dash
+      #       character is not present.
+      #
+      if {!$rangeOk && [string first - $requirement] != -1} then {
+        return false
+      }
+
+      #
+      # HACK: There is no direct way to check if a package requirement
+      #       that uses the TIP #268 syntax is valid; however, we can
+      #       purposely "misuse" the [package present] command for this
+      #       purpose.  We know the "Tcl" package is always present;
+      #       therefore, if an error is raised here, then the package
+      #       requirement is probably invalid.  Unfortunately, the error
+      #       message text has to be checked as well; otherwise, there
+      #       is no way to verify version numbers that happen to be less
+      #       than the running patch level of Tcl.
+      #
+      if {[catch {package present Tcl $requirement} error] == 0} then {
+        return true
+      } else {
+        #
+        # TODO: Maybe this will require updates in the future?
+        #
+        set pattern(1) "expected version number but got *"
+        set pattern(2) "expected versionMin-versionMax but got *"
+
+        if {![string match $pattern(1) $error] && \
+            ![string match $pattern(2) $error]} then {
+          return true
+        } else {
+          return false
+        }
+      }
+    }
+  }
+
+  #
+  # NOTE: This procedure attempts to extract the package lookup metadata from
+  #       the lookup result.  The result argument is the lookup result.  The
+  #       varName argument is the name of an array variable, in the call frame
+  #       of the immediate caller, that should receive the extracted package
+  #       lookup metadata.  The caller argument must be an empty string -OR-
+  #       the literal string "handler".
+  #
+  proc extractAndVerifyLookupMetadata { result varName caller } {
+    variable strictUnknownLanguage
+
+    #
+    # NOTE: Grab the returned package name.  It cannot be an empty string
+    #       and it must conform to the general conventions for a package
+    #       name.
+    #
+    set name [getDictionaryValue $result Name]
+
+    if {[string length $name] == 0} then {
+      error "missing name"
+    }
+
+    if {![isValidPackageName $name false]} then {
+      error "bad name"
+    }
+
+    #
+    # NOTE: Grab the returned patch level.  It cannot be an empty string
+    #       and it must conform to the TIP #268 requirements for a single
+    #       package version.
+    #
+    set patchLevel [getDictionaryValue $result PatchLevel]
+
+    if {[string length $patchLevel] == 0} then {
+      error "missing patch level"
+    }
+
+    if {![isValidPackageRequirement $patchLevel false]} then {
+      error "bad patch level"
+    }
+
+    #
+    # NOTE: Grab the language for the package script.  It must be an empty
+    #       string, "Tcl", or "Eagle".  If it is an empty string, then the
+    #       current language will be assumed (but not by this procedure).
+    #
+    set language [getDictionaryValue $result Language]
+
+    verifyMetadataLanguage $language
+
+    #
+    # NOTE: Grab the package script.  If it is an empty string, then the
+    #       package cannot be loaded and there is nothing to do.  In that
+    #       case, just raise an error.
+    #
+    set script [getDictionaryValue $result Script]
+
+    if {[string length $script] == 0} then {
+      error "missing script"
+    }
+
+    #
+    # NOTE: Grab the package script certificate.  If it is an empty string
+    #       then the package script is unsigned, which is not allowed by
+    #       this client.  In that case, just raise an error.
+    #
+    set certificate [getDictionaryValue $result Certificate]
+
+    if {[string length $certificate] == 0} then {
+      error "missing certificate"
+    }
+
+    #
+    # NOTE: Are we being called from the [package unknown] handler
+    #       in "strict" mode?
+    #
+    if {$strictUnknownLanguage && $caller eq "handler"} then {
+      #
+      # NOTE: If so, the package script must be targeted at the this
+      #       language; otherwise, there exists the possibility that
+      #       the package may not be provided to this language.
+      #
+      if {[isEagle]} then {
+        if {$language ne "Eagle"} then {
+          error "repository package is not for Eagle"
+        }
+      } else {
+        if {$language ne "Tcl"} then {
+          error "repository package is not for Tcl"
+        }
+      }
+    }
+
+    #
+    # NOTE: If the caller wants the package lookup metadata, use their
+    #       array variable name.
+    #
+    if {[string length $varName] > 0} then {
+      upvar 1 $varName metadata
+
+      set metadata(name) $name
+      set metadata(patchLevel) $patchLevel
+      set metadata(language) $language
+      set metadata(script) $script
+      set metadata(certificate) $certificate
+    }
+  }
+
+  #
+  # NOTE: This procedure, which may only be used from an Eagle script, checks
+  #       if a native Tcl library is loaded and ready.  If not, a script error
+  #       is raised.  There are no arguments.
+  #
+  proc tclMustBeReady {} {
+    #
+    # NOTE: This procedure is useless when running in native Tcl; therefore,
+    #       forbid its use there.
+    #
+    if {![isEagle]} then {
+      error "already running in Tcl language"
+    }
+
+    #
+    # NOTE: This procedure is not allowed to actually load a native Tcl
+    #       library; therefore, one must already be loaded.
+    #
+    if {![tcl ready]} then {
+      error "cannot use Tcl language, supporting library is not loaded"
+    }
+  }
+
+  #
+  # NOTE: This procedure is designed for Eagle.  It attempts to load the
+  #       "best" native Tcl library.  It may raise any number of script
+  #       errors.  There are no arguments.
+  #
+  # <internal>
+  proc makeTclReady {} {
+    #
+    # NOTE: This procedure is useless when running in native Tcl; therefore,
+    #       forbid its use there.
+    #
+    if {![isEagle]} then {
+      error "already running in Tcl language"
+    }
+
+    #
+    # NOTE: Load a native Tcl library.  It absolutely must be signed with a
+    #       valid Authenticode signature.  Other than that, it should also
+    #       be easily loadable.
+    #
+    tcl load -maybetrustedonly -bridge -robustify
+
+    #
+    # NOTE: Verify that the native Tcl library appears to have beed loaded
+    #       into this interpreter.
+    #
+    tclMustBeReady
+  }
+
+  #
+  # NOTE: This procedure, which may only be used from a native Tcl script,
+  #       checks if Garuda and Eagle are loaded and ready.  If not, a script
+  #       error is raised.  There are no arguments.
+  #
+  # <internal>
+  proc eagleMustBeReady {} {
+    #
+    # NOTE: This procedure is useless when running in Eagle; therefore,
+    #       forbid its use there.
+    #
+    if {[isEagle]} then {
+      error "already running in Eagle language"
+    }
+
+    #
+    # NOTE: This procedure is not allowed to actually load Garuda (and
+    #       Eagle); therefore, they must already be loaded.
+    #
+    if {[llength [info commands eagle]] == 0} then {
+      error "cannot use Eagle language, supporting package is not loaded"
+    }
+  }
+
+  #
+  # NOTE: This procedure is designed for native Tcl.  It attempts to load
+  #       the Garuda package and gain access to Eagle.  It may raise any
+  #       number of script errors.  There are no arguments.
+  #
+  # <internal>
+  proc makeEagleReady {} {
+    #
+    # NOTE: This procedure is useless when running in Eagle; therefore,
+    #       forbid its use there.
+    #
+    if {[isEagle]} then {
+      error "already running in Eagle language"
+    }
+
+    #
+    # TODO: Assume the Garuda package is trusted?  How can we verify it
+    #       at this point?
+    #
+    package require Garuda
+
+    #
+    # NOTE: Verify that the Garuda package appears to have been fully and
+    #       successfully loaded into this interpreter.
+    #
+    eagleMustBeReady
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the current script is being
+  #       evaluated in Eagle with signed-only script security enabled.
+  #       There are no arguments.
+  #
+  proc eagleHasSecurity {} {
+    #
+    # NOTE: If possible, check if the current interpreter has security
+    #       enabled.
+    #
+    if {[isEagle] && [llength [info commands object]] > 0} then {
+      if {[catch {
+        object invoke -flags +NonPublic Interpreter.GetActive HasSecurity
+      } security] == 0 && $security} then {
+        return true
+      }
+    }
+
+    return false
+  }
+
+  #
+  # NOTE: This procedure uses the package lookup metadata.  If the package
+  #       script is properly signed, an attempt will be made to evaluate it
+  #       in the target language.  If the script was signed using OpenPGP,
+  #       then a conforming implementation of the OpenPGP specification (e.g.
+  #       gpg2) must be installed locally.  If the script was signed using
+  #       Harpy then Garuda, Eagle, and Harpy must be installed locally.
+  #       This procedure is designed to work for both native Tcl and Eagle
+  #       packages.  Additionally, it is designed to work when evaluated
+  #       using either native Tcl or Eagle; however, it is up to the package
+  #       script itself to either add the package or provide the package to
+  #       the language(s) supported by that package.  The varName argument
+  #       is the name of an array variable in the call frame of the
+  #       immediate caller, that contains the package lookup metadata.  This
+  #       procedure may raise script errors.
+  #
+  proc processLookupMetadata { varName } {
+    #
+    # NOTE: If the metadata variable name appears to be invalid, fail.
+    #
+    if {[string length $varName] == 0} then {
+      error "bad metadata"
+    }
+
+    #
+    # NOTE: This procedure requires that the metadata array variable is
+    #       present in the call frame immediately above this one.
+    #
+    upvar 1 $varName metadata
+
+    #
+    # NOTE: If the entire package metadata array is missing, fail.
+    #
+    if {![info exists metadata]} then {
+      error "missing metadata"
+    }
+
+    #
+    # NOTE: If the name for the package is mising, fail.
+    #
+    if {![info exists metadata(name)]} then {
+      error "missing name"
+    }
+
+    #
+    # NOTE: If the patch level for the package is mising, fail.
+    #
+    if {![info exists metadata(patchLevel)]} then {
+      error "missing patch level"
+    }
+
+    #
+    # NOTE: If the language for the package script is mising, fail.
+    #
+    if {![info exists metadata(language)]} then {
+      error "missing language"
+    }
+
+    #
+    # NOTE: If the package script is mising, fail.
+    #
+    if {![info exists metadata(script)]} then {
+      error "missing script"
+    }
+
+    #
+    # NOTE: If the package script certificate is mising, fail.
+    #
+    if {![info exists metadata(certificate)]} then {
+      error "missing certificate"
+    }
+
+    #
+    # NOTE: Create common cleanup script block that deletes any temporary
+    #       files created for the script verification process.
+    #
+    set script(cleanup) {
+      if {[string length $fileName(2)] > 0 && \
+          [file exists $fileName(2)] && [file isfile $fileName(2)]} then {
+        if {![info exists ::env(PKGR_KEEP_FILES)]} then {
+          catch {file delete $fileName(2)}
+        }
+        unset -nocomplain fileName(2)
+      }
+
+      if {[string length $fileName(1)] > 0 && \
+          [file exists $fileName(1)] && [file isfile $fileName(1)]} then {
+        if {![info exists ::env(PKGR_KEEP_FILES)]} then {
+          catch {file delete $fileName(1)}
+        }
+        unset -nocomplain fileName(1)
+      }
+    }
+
+    #
+    # NOTE: Figure out the "type" of script certificate we are now dealing
+    #       with.
+    #
+    if {[isHarpyCertificate $metadata(certificate)]} then {
+      #
+      # NOTE: Attempt to create a completely unique array variable name to
+      #       hold the package metadata in this scripting language as well
+      #       as possibly in the other necessary scripting language(s).
+      #
+      set newVarName(1) [appendArgs \
+          [getLookupVarNamePrefix] metadata_ [getUniqueSuffix 2]]
+
+      set newVarName(2) [appendArgs \
+          [getLookupVarNamePrefix] cleanup_ [getUniqueSuffix 2]]
+
+      set newProcName(1) [appendArgs \
+          [getLookupVarNamePrefix] eagleHasSecurity_ [getUniqueSuffix 2]]
+
+      set newProcName(2) [appendArgs \
+          [getLookupVarNamePrefix] getFileTempName_ [getUniqueSuffix 2]]
+
+      set newProcName(3) [appendArgs \
+          [getLookupVarNamePrefix] tclMustBeReady_ [getUniqueSuffix 2]]
+
+      #
+      # NOTE: Create the Eagle script block that will be used to securely
+      #       evaluate a signed package script.  This must be evaluated in
+      #       Eagle because it uses several plugins only available there.
+      #
+      set script(outer) [string map [list \
+          %metadata% $newVarName(1) %cleanup% $newVarName(2) \
+          %eagleHasSecurity% $newProcName(1) %getFileTempName% \
+          $newProcName(2) %tclMustBeReady% $newProcName(3)] {
+        try {
+          #
+          # NOTE: If there is no package script, there is nothing we
+          #       can do here.
+          #
+          if {[string length ${%metadata%(script)}] > 0} then {
+            #
+            # NOTE: Save the security state for the interpreter.  Then, attempt
+            #       to enable it.  This will fail if one of the needed plugins
+            #       cannot be loaded.
+            #
+            set savedSecurity [{%eagleHasSecurity%}]
+            if {!$savedSecurity} then {source enableSecurity}
+
+            try {
+              #
+              # NOTE: Figure out temporary file name for the downloaded script
+              #       and its associated script certificate.
+              #
+              set fileName(1) [{%getFileTempName%}]
+              set fileName(2) [appendArgs $fileName(1) .harpy]
+
+              try {
+                #
+                # NOTE: Write downloaded script to a temporary file.
+                #
+                writeFile $fileName(1) ${%metadata%(script)}
+
+                #
+                # NOTE: Write downloaded script certificate to a temporary
+                #       file.
+                #
+                if {[string length ${%metadata%(certificate)}] > 0} then {
+                  writeFile $fileName(2) ${%metadata%(certificate)}
+                }
+
+                #
+                # NOTE: This seems stupid.  Why are we reading the downloaded
+                #       script from the temporary file when we already had it
+                #       in memory?  The reason is that we need to make sure
+                #       that the Harpy policy engine has a chance to check the
+                #       downloaded script against its associated certificate.
+                #       This will raise a script error if the script signature
+                #       is missing or invalid.
+                #
+                set script(inner) [interp readorgetscriptfile -- \
+                    "" $fileName(1)]
+
+                #
+                # NOTE: Determine the target language for the package script,
+                #       which may or may not be the language that is currently
+                #       evaluating this script (Eagle).  The default language,
+                #       when one was not explicitly specified, is the current
+                #       language (i.e. which is always Eagle for this script
+                #       because the Harpy plugin is absolutely required in
+                #       order to validate one of its script certificate).
+                #
+                switch -exact -- ${%metadata%(language)} {
+                  "" -
+                  Eagle {
+                    #
+                    # NOTE: The target language is Eagle, which is evaluating
+                    #       this script.  No special handling is needed here.
+                    #
+                    return [uplevel #0 $script(inner)]
+                  }
+                  Tcl {
+                    #
+                    # NOTE: The target language is Tcl; therefore, a bit of
+                    #       special handling is needed here.
+                    #
+                    {%tclMustBeReady%}; return [tcl eval [tcl primary] [list \
+                        uplevel #0 $script(inner)]]
+                  }
+                  default {
+                    error "unsupported metadata language"
+                  }
+                }
+              } finally {
+                #
+                # NOTE: Perform any necessary cleanup steps.
+                #
+                eval ${%cleanup%}
+              }
+            } finally {
+              #
+              # NOTE: Restore the saved security state for the interpreter.
+              #
+              if {!$savedSecurity} then {source disableSecurity}
+              unset -nocomplain savedSecurity
+            }
+          }
+        } finally {
+          rename {%tclMustBeReady%} ""
+          rename {%getFileTempName%} ""
+          rename {%eagleHasSecurity%} ""
+
+          unset -nocomplain {%cleanup%}
+          unset -nocomplain {%metadata%}
+        }
+      }]
+
+      #
+      # NOTE: Copy the package metadata into the fresh array variable,
+      #       if necessary, marshalling it from native Tcl to Eagle.
+      #
+      if {[isEagle]} then {
+        array set $newVarName(1) [array get metadata]
+        set $newVarName(2) $script(cleanup)
+
+        proc $newProcName(1) {} [info body [appendArgs \
+            [namespace current] ::eagleHasSecurity]]
+
+        proc $newProcName(2) {} [info body [appendArgs \
+            [namespace current] ::getFileTempName]]
+
+        proc $newProcName(3) {} [info body [appendArgs \
+            [namespace current] ::tclMustBeReady]]
+
+        return [eval $script(outer)]
+      } else {
+        eagleMustBeReady
+
+        eagle [list array set $newVarName(1) [array get metadata]]
+        eagle [list set $newVarName(2) $script(cleanup)]
+
+        eagle [list proc $newProcName(1) {} [info body [appendArgs \
+            [namespace current] ::eagleHasSecurity]]]
+
+        eagle [list proc $newProcName(2) {} [info body [appendArgs \
+            [namespace current] ::getFileTempName]]]
+
+        eagle [list proc $newProcName(3) {} [info body [appendArgs \
+            [namespace current] ::tclMustBeReady]]]
+
+        return [eagle $script(outer)]
+      }
+    } elseif {[isOpenPgpSignature $metadata(certificate)]} then {
+      #
+      # NOTE: If there is no package script, there is nothing we
+      #       can do here.
+      #
+      if {[string length $metadata(script)] > 0} then {
+        #
+        # NOTE: Figure out temporary file name for the downloaded script
+        #       and its associated OpenPGP signature.
+        #
+        set fileName(1) [getFileTempName]
+        set fileName(2) [appendArgs $fileName(1) .asc]
+
+        #
+        # NOTE: Write downloaded script to a temporary file.
+        #
+        writeFile $fileName(1) $metadata(script)
+
+        #
+        # NOTE: Write downloaded script OpenPGP signature a temporary file.
+        #
+        if {[string length $metadata(certificate)] > 0} then {
+          writeFile $fileName(2) $metadata(certificate)
+        }
+
+        #
+        # NOTE: Attempt to verify the OpenPGP signature for the package
+        #       script.
+        #
+        probeForOpenPgpInstallation
+        openPgpMustBeInstalled
+
+        if {[verifyOpenPgpSignature $fileName(2)]} then {
+          #
+          # NOTE: Delete the temporary files that we created for the
+          #       OpenPGP signature verification.
+          #
+          eval $script(cleanup)
+        } else {
+          #
+          # NOTE: Delete the temporary files that we created for the
+          #       OpenPGP signature verification.
+          #
+          eval $script(cleanup)
+
+          #
+          # NOTE: OpenPGP signature verification failed.  Raise an error
+          #       and do not proceed with evaluating the package script.
+          #
+          error "bad OpenPGP signature"
+        }
+
+        #
+        # NOTE: The OpenPGP signature was verified; use the downloaded
+        #       package script verbatim.
+        #
+        set script(inner) $metadata(script)
+
+        #
+        # NOTE: Determine the target language for the package script, which
+        #       may or may not be the language that is currently evaluating
+        #       this script (Eagle).  The default language, when one was not
+        #       explicitly specified, is the current language.  In the future,
+        #       this may be changed, e.g. to use the file extension of the
+        #       client script.
+        #
+        switch -exact -- $metadata(language) {
+          "" {
+            #
+            # NOTE: Assume the current language is the same as the target
+            #       language -OR- that the script being evaluated does not
+            #       care.
+            #
+            return [uplevel #0 $script(inner)]
+          }
+          Eagle {
+            #
+            # NOTE: The target language is Eagle.  If the current language
+            #       is also Eagle, simply evaluate the inner script block.
+            #       If the current language is Tcl, then try to use Garuda
+            #       in order to evaluate the inner script block in Eagle.
+            #
+            if {[isEagle]} then {
+              return [uplevel #0 $script(inner)]
+            } else {
+              eagleMustBeReady
+
+              return [eagle [list uplevel #0 $script(inner)]]
+            }
+          }
+          Tcl {
+            #
+            # NOTE: The target language is Tcl.  If the current language is
+            #       also Tcl, simply evaluate the inner script block.  If
+            #       the current language is Eagle, then try to use its [tcl]
+            #       command in order to evaluate the inner script block in
+            #       Tcl.
+            #
+            if {[isEagle]} then {
+              tclMustBeReady; return [tcl eval [tcl primary] [list \
+                  uplevel #0 $script(inner)]]
+            } else {
+              return [uplevel #0 $script(inner)]
+            }
+          }
+          default {
+            error "unsupported metadata language"
+          }
+        }
+      }
+    } else {
+      error "unsupported certificate"
+    }
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified package appears to
+  #       be present.  The package argument is the name of the package being
+  #       sought, it cannot be an empty string.  The version argument must be
+  #       a specific version -OR- a package specification that conforms to TIP
+  #       #268.
+  #
+  proc isPackagePresent { package version } {
+    variable verboseUnknownResult
+
+    set command [list package present $package]
+    if {[string length $version] > 0} then {lappend command $version}
+
+    if {[set code [catch $command result]] == 0} then {
+      if {$verboseUnknownResult} then {
+        pkgLog [appendArgs \
+            "package \"" [formatPackageName $package $version] \
+            "\" was loaded: " [formatResult $code $result]]
+      }
+
+      return true
+    } else {
+      if {$verboseUnknownResult} then {
+        pkgLog [appendArgs \
+            "package \"" [formatPackageName $package $version] \
+            "\" was not loaded: " [formatResult $code $result]]
+      }
+
+      return false
+    }
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified package appears to
+  #       be available.  The package argument is the name of the package being
+  #       sought, it cannot be an empty string.  The version argument must be
+  #       a specific version -OR- a package specification that conforms to TIP
+  #       #268.
+  #
+  proc isPackageAvailable { package version } {
+    variable verboseUnknownResult
+
+    set packageVersions [package versions $package]
+
+    if {[llength $packageVersions] == 0} then {
+      if {$verboseUnknownResult} then {
+        pkgLog [appendArgs \
+            "package \"" [formatPackageName $package $version] \
+            "\" is not available: no versions"]
+      }
+
+      return false
+    }
+
+    if {[string length $version] == 0} then {
+      if {$verboseUnknownResult} then {
+        pkgLog [appendArgs \
+            "package \"" [formatPackageName $package $version] \
+            "\" is available: no version"]
+      }
+
+      return true
+    }
+
+    foreach packageVersion $packageVersions {
+      if {[package vsatisfies $packageVersion $version]} then {
+        if {$verboseUnknownResult} then {
+          pkgLog [appendArgs \
+              "package \"" [formatPackageName $package $version] \
+              "\" is available: version satisfied by \"" \
+              [formatPackageName $package $packageVersion] \"]
+        }
+
+        return true
+      }
+    }
+
+    if {$verboseUnknownResult} then {
+      pkgLog [appendArgs \
+          "package \"" [formatPackageName $package $version] \
+          "\" is not available: version not satisfied"]
+    }
+
+    return false
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the specified package can be
+  #       downloaded, i.e. because it is not required for the downloading
+  #       process itself to be functional, etc.  The package argument is
+  #       the name of the package to check.
+  #
+  proc canDownloadPackage { package } {
+    variable verboseUnknownResult
+
+    #
+    # NOTE: Since all the functionality needed by this package is built-in
+    #       to Eagle, there are no download restrictions when it is being
+    #       used.
+    #
+    if {[isEagle]} then {
+      return true
+    }
+
+    #
+    # NOTE: Since the "http" and "tls" packages are required from within
+    #       the custom [package unknown] itself, in order to locate and
+    #       download the requested package, we must return false here to
+    #       prevent needless recursion.
+    #
+    if {[lsearch -exact [list http tls] $package] != -1} then {
+      #
+      # NOTE: Emit a diagnostic message as this is a relatively rare and
+      #       fairly serious issue.
+      #
+      if {$verboseUnknownResult} then {
+        pkgLog [appendArgs \
+            "cannot download package \"" $package \
+            "\", because it is needed in order to enable downloads"]
+      }
+
+      return false
+    }
+
+    #
+    # NOTE: Currently, all other packages, including Garuda, are legal to
+    #       handle from the custom [package unknown] handler.
+    #
+    return true
+  }
+
+  #
+  # NOTE: This procedure performs initial setup of the package repository
+  #       client, using the current configuration parameters.  There are
+  #       no arguments.  It may load the Garuda package when evaluated in
+  #       native Tcl.  It may load a native Tcl library when evaluated in
+  #       Eagle.  It may install the [package unknown] hook.
+  #
+  proc setupPackageUnknownHandler {} {
+    variable autoApiKeys
+    variable autoHook
+    variable autoLoadTcl
+    variable autoRequireGaruda
+
+    #
+    # NOTE: Should we attempt to automatically load the Garuda package for
+    #       native Tcl?
+    #
+    if {$autoRequireGaruda && ![isEagle] && [isWindows]} then {
+      makeEagleReady
+    }
+
+    #
+    # NOTE: Should we attempt to automatically load a native Tcl library
+    #       for Eagle?
+    #
+    if {$autoLoadTcl && [isEagle]} then {
+      makeTclReady
+    }
+
+    #
+    # NOTE: Should we attempt to hook the [package unknown] handler.  This
+    #       is done for both native Tcl and Eagle.
+    #
+    if {$autoHook && ![isPackageUnknownHandlerHooked]} then {
+      #
+      # NOTE: Install our [package unknown] handler and save the original
+      #       one for our use as well.
+      #
+      hookPackageUnknownHandler
+    }
+  }
+
+  #
+  # NOTE: This procedure returns non-zero if the [package unknown] handler
+  #       has already been hooked by the package repository client.  There
+  #       are no arguments.
+  #
+  proc isPackageUnknownHandlerHooked {} {
+    return [info exists [appendArgs \
+        [getLookupVarNamePrefix] saved_package_unknown]]
+  }
+
+  #
+  # NOTE: This procedure attempts to hook the [package unknown] handler.  It
+  #       will raise a script error if this has already been done.  The old
+  #       [package unknown] handler is saved and will be used by the new one
+  #       as part of the overall package loading process.  There are no
+  #       arguments.
+  #
+  proc hookPackageUnknownHandler {} {
+    set varName [appendArgs [getLookupVarNamePrefix] saved_package_unknown]
+
+    if {[info exists $varName]} then {
+      error "package unknown handler already hooked"
+    }
+
+    set $varName [package unknown]
+    package unknown [appendArgs [namespace current] ::packageUnknownHandler]
+  }
+
+  #
+  # NOTE: This procedure attempts to unhook the [package unknown] handler.
+  #       It will raise a script error if the [package unknown] handler is
+  #       not hooked.  The old [package unknown] handler is restored and
+  #       the saved [package unknown] handler is cleared.  There are no
+  #       arguments.
+  #
+  proc unhookPackageUnknownHandler {} {
+    set varName [appendArgs [getLookupVarNamePrefix] saved_package_unknown]
+
+    if {![info exists $varName]} then {
+      error "package unknown handler is not hooked"
+    }
+
+    package unknown [set $varName]
+    unset $varName
+  }
+
+  #
+  # NOTE: The procedure runs the saved [package unknown] handler.  Any script
+  #       errors are raised to the caller.  The package and version arguments
+  #       are passed in from the current [package unknown] handler verbatim.
+  #
+  proc runSavedPackageUnknownHandler { package version } {
+    #
+    # NOTE: See if there is a saved [package unknown] handler.  If so, then
+    #       attempt to use it.
+    #
+    set varName [appendArgs [getLookupVarNamePrefix] saved_package_unknown]
+    set oldHandler [expr {[info exists $varName] ? [set $varName] : ""}]
+
+    if {[string length $oldHandler] > 0} then {
+      lappend oldHandler $package $version; uplevel #0 $oldHandler
+    }
+  }
+
+  #
+  # NOTE: This procedure is the [package unknown] handler entry point called
+  #       by native Tcl and Eagle.  The package argument is the name of the
+  #       package being sought, it cannot be an empty string.  The version
+  #       argument must be a specific version -OR- a package specification
+  #       that conforms to TIP #268.  This version argument must be optional
+  #       here, because Eagle does not add a version argument when one is
+  #       not explicitly supplied to the [package require] sub-command.
+  #
+  proc packageUnknownHandler { package {version ""} } {
+    variable verboseUnknownResult
+
+    #
+    # NOTE: First, run the saved [package unknown] handler.
+    #
+    set code(1) [catch {
+      runSavedPackageUnknownHandler $package $version
+    } result(1)]
+
+    if {$verboseUnknownResult} then {
+      pkgLog [appendArgs \
+          "initial saved handler results for package \"" \
+          [formatPackageName $package $version] "\" are " \
+          [formatResult $code(1) $result(1)]]
+    }
+
+    #
+    # NOTE: Did the saved [package unknown] handler succeed?
+    #
+    if {$code(1) == 0} then {
+      #
+      # NOTE: Is the package now available -OR- somehow already present?
+      #
+      if {[isPackagePresent $package $version] || \
+          [isPackageAvailable $package $version]} then {
+        #
+        # NOTE: Skip using the package repository.
+        #
+        return
+      }
+    }
+
+    #
+    # NOTE: Next, run our special [package unknown] handler.
+    #
+    if {[canDownloadPackage $package]} then {
+      set code(2) [catch {
+        getPackageFromRepository $package $version handler
+      } result(2)]
+
+      if {$verboseUnknownResult} then {
+        pkgLog [appendArgs \
+            "repository handler results for package \"" \
+            [formatPackageName $package $version] "\" are " \
+            [formatResult $code(2) $result(2)]]
+      }
+    }
+
+    #
+    # NOTE: Next, run the saved [package unknown] handler.
+    #
+    set code(3) [catch {
+      runSavedPackageUnknownHandler $package $version
+    } result(3)]
+
+    if {$verboseUnknownResult} then {
+      pkgLog [appendArgs \
+          "subsequent saved handler results for package \"" \
+          [formatPackageName $package $version] "\" are " \
+          [formatResult $code(3) $result(3)]]
+    }
+
+    #
+    # NOTE: Maybe check for the package and then optionally log results.
+    #
+    if {$verboseUnknownResult} then {
+      set ifNeededVersion [getIfNeededVersion \
+          $package [packageRequirementToVersion $version]]
+
+      if {[string length $ifNeededVersion] > 0} then {
+        set command [list package ifneeded $package $ifNeededVersion]
+
+        if {[set code(4) [catch $command result(4)]] == 0 && \
+            [string length $result(4)] > 0} then {
+          pkgLog [appendArgs \
+              "package script for \"" [formatPackageName $package \
+              $ifNeededVersion] "\" was added: " [formatResult \
+              $code(4) $result(4)]]
+        } else {
+          pkgLog [appendArgs \
+              "package script for \"" [formatPackageName $package \
+              $ifNeededVersion] "\" was not added: " [formatResult \
+              $code(4) $result(4)]]
+        }
+      } else {
+        pkgLog [appendArgs \
+            "package script for \"" [formatPackageName $package \
+            $ifNeededVersion] "\" was not added"]
+      }
+
+      #
+      # NOTE: Check (and log) if the package is now present.  The return
+      #       value here is ignored.
+      #
+      isPackagePresent $package $version
+    }
+  }
+
+  #
+  # NOTE: This procedure returns the list of possible prefixes that should be
+  #       considered for settings files.  The scriptName parameter is the name
+  #       of the script being evaluated, if any.  The envVarName parameter is
+  #       the name of an environment variable associated with the script being
+  #       evaluated, if any.  The all parameter should be non-zero to include
+  #       all available prefixes, even if they are inapplicable to the current
+  #       configuration.  This procedure may raise script errors.
+  #
+  proc getSettingsPrefixes { scriptName envVarName all } {
+    global env
+
+    set result [list]
+
+    if {[info exists tcl_platform(user)]} then {
+      lappend result $tcl_platform(user)
+    }
+
+    if {[catch {info hostname} hostName] == 0 && \
+        [string length $hostName] > 0} then {
+      lappend result $hostName
+    }
+
+    if {[string length $scriptName] > 0} then {
+      lappend result $scriptName
+    }
+
+    if {$all || ([string length $envVarName] > 0 && \
+        [info exists [appendArgs env(DEBUG_ $envVarName )]])} then {
+      lappend result debug
+    }
+
+    lappend result ""; return $result
+  }
+
+  #
+  # NOTE: This procedure evaluates package repository client settings script
+  #       files, if they exists.  Any script errors raised are not masked.
+  #       The script argument must be the fully qualified path and file name
+  #       for a package client toolset script file.
+  #
+  # <public>
+  proc maybeReadSettingsFiles { script } {
+    global env
+    global tcl_platform
+
+    if {[string length $script] == 0 || ![file exists $script]} then {
+      return -1
+    }
+
+    set scriptPath [file normalize [file dirname $script]]
+    set scriptTail [file tail $script]
+    set scriptRootName [file rootname $scriptTail]
+    set scriptExtension [file extension $scriptTail]
+    set scriptUpperName [string toupper $scriptRootName]
+    set scriptLowerName [string tolower $scriptRootName]
+
+    if {[info exists [appendArgs \
+        env(NO_SETTINGS_ $scriptUpperName )]]} then {
+      return -2
+    }
+
+    set count 0
+    set allFileNamesOnly [list]
+
+    set allPrefixes [getSettingsPrefixes \
+        $scriptLowerName $scriptUpperName true]
+
+    foreach prefix $allPrefixes {
+      if {[string length $prefix] > 0} then {
+        set prefix [appendArgs . $prefix]
+      }
+
+      set fileNameOnly [appendArgs \
+          $scriptRootName .settings $prefix \
+          $scriptExtension]
+
+      lappend allFileNamesOnly $fileNameOnly
+    }
+
+    set scriptPrefixes [getSettingsPrefixes \
+        $scriptLowerName $scriptUpperName false]
+
+    foreach prefix $scriptPrefixes {
+      if {[string length $prefix] > 0} then {
+        set prefix [appendArgs . $prefix]
+      }
+
+      set fileNameOnly [appendArgs \
+          $scriptRootName .settings $prefix \
+          $scriptExtension]
+
+      set fileName [file join \
+          $scriptPath $fileNameOnly]
+
+      if {[file exists $fileName]} then {
+        uplevel 1 [list source $fileName]; incr count
+      }
+    }
+
+    if {$count == 0} then {
+      set pattern [file join $scriptPath [appendArgs \
+          $scriptRootName .settings.* $scriptExtension]]
+
+      foreach fileName [lsort [glob -nocomplain -- $pattern]] {
+        #
+        # BUGFIX: Do not consider any settings script file
+        #         that may have already been evaluated via
+        #         the above list(s) of script prefixes.
+        #
+        set fileNameOnly [file tail $fileName]
+
+        if {[lsearch -exact \
+            $allFileNamesOnly $fileNameOnly] == -1} then {
+          if {[file exists $fileName]} then {
+            uplevel 1 [list source $fileName]; incr count
+          }
+        }
+      }
+    }
+
+    return $count
+  }
+
+  #
+  # NOTE: This procedure evaluates a package repository client API keys
+  #       script file, if it has been configured -AND- actually exists.
+  #       Any script errors raised are not masked.  The evaluated script
+  #       file should (normally) modify the "::pkgr_api_keys" variable
+  #       in order to add API keys for use with the package repository
+  #       client.
+  #
+  proc maybeReadApiKeysFile {} {
+    global env
+
+    if {[info exists env(PKGR_NO_API_KEYS_FILE)]} then {
+      return
+    }
+
+    if {[info exists env(PKGR_API_KEYS_FILE)]} then {
+      set fileName $env(PKGR_API_KEYS_FILE)
+
+      if {[file exists $fileName]} then {
+        uplevel 1 [list source $fileName]
+      }
+    }
+  }
+
+  #
+  # NOTE: This procedure sets up the default values for all configuration
+  #       parameters used to interact with the OpenPGP implementation.
+  #       If the force argument is non-zero, any existing values will be
+  #       overwritten and set back to their default values.
+  #
+  proc setupRepositoryOpenPgpVars { force } {
+    #
+    # NOTE: This is the name of the sub-directory containing the OpenPGP
+    #       implementation.  It is platform-specific.  On Windows, this
+    #       sub-directory is relative to the "Program Files" directory.
+    #
+    variable openPgpInstalledDirectories; # DEFAULT: [list ...]
+
+    if {$force || ![info exists openPgpInstalledDirectories]} then {
+      if {[isWindows]} then {
+        set openPgpInstalledDirectories [list \
+            [file join gnupg bin] [file join GNU GnuPG]]
+      } else {
+        set openPgpInstalledDirectories [list \
+            [file join / usr bin]]
+      }
+    }
+
+    #
+    # NOTE: These are the candidate names of the executable file used to
+    #       invoke the OpenPGP implementation, possibly without a file
+    #       extension.
+    #
+    variable openPgpFileNamesOnly; # DEFAULT: [list gpg2 gpg]
+
+    if {$force || ![info exists openPgpFileNamesOnly]} then {
+      if {[isWindows]} then {
+        set openPgpFileNamesOnly [list gpg2.exe gpg.exe]
+      } else {
+        set openPgpFileNamesOnly [list gpg2 gpg]
+      }
+    }
+
+    #
+    # NOTE: This is the name of the executable file used to invoke the
+    #       OpenPGP implementation, possibly without a file extension.
+    #
+    variable openPgpFileNameOnly; # DEFAULT: <unset>
+
+    #
+    # NOTE: The command to use when attempting to import an OpenPGP key
+    #       file.  This must be configured according to the implementation
+    #       of OpenPGP in use.
+    #
+    variable openPgpImportCommand; # DEFAULT: gpg2 --import
+
+    if {$force || ![info exists openPgpImportCommand]} then {
+      set openPgpImportCommand \
+          {{${openPgpFileNameOnly}} --import {${fileName}}}
+    }
+
+    #
+    # NOTE: The regular expression pattern used when attempting to verify
+    #       that OpenPGP successfully imported one or more keys.  This must
+    #       be configured according to the implementation of OpenPGP in use.
+    #
+    variable openPgpImportPattern; # DEFAULT: ^gpg: Total number processed...
+
+    if {$force || ![info exists openPgpImportPattern]} then {
+      set openPgpImportPattern {^gpg: Total number processed: [1-9]\d*$}
+    }
+
+    #
+    # NOTE: The command to use when attempting to verify that OpenPGP is
+    #       installed locally.  This must be configured according to the
+    #       implementation of OpenPGP in use.
+    #
+    variable openPgpInstalledCommand; # DEFAULT: gpg2 --version --homedir {}
+
+    if {$force || ![info exists openPgpInstalledCommand]} then {
+      set openPgpInstalledCommand {{${fileNameOnly}} --version --homedir {}}
+    }
+
+    #
+    # NOTE: The regular expression pattern used when attempting to verify
+    #       that OpenPGP is installed locally.  This must be configured
+    #       according to the implementation of OpenPGP in use.
+    #
+    variable openPgpInstalledPattern; # DEFAULT: ^gpg \(GnuPG\) 2\.[0123]\.
+
+    if {$force || ![info exists openPgpInstalledPattern]} then {
+      set openPgpInstalledPattern {^gpg \(GnuPG\) 2\.[0123]\.}
+    }
+
+    #
+    # NOTE: The command to use when verifying OpenPGP signatures for the
+    #       downloaded package scripts.  This must be configured according
+    #       to the implementation of OpenPGP in use.
+    #
+    variable openPgpVerifyCommand; # DEFAULT: gpg2 --verify {${fileName}}
+
+    if {$force || ![info exists openPgpVerifyCommand]} then {
+      set openPgpVerifyCommand \
+          {{${openPgpFileNameOnly}} --verify {${fileName}}}
+    }
+
+    #
+    # NOTE: The command to use when creating OpenPGP signatures for the
+    #       downloaded package scripts.  This must be configured according
+    #       to the implementation of OpenPGP in use.
+    #
+    variable openPgpSignCommand; # DEFAULT: gpg2 --detach-sign ...
+
+    if {$force || ![info exists openPgpSignCommand]} then {
+      set openPgpSignCommand ""
+
+      append openPgpSignCommand \
+          {{${openPgpFileNameOnly}} --detach-sign --armor}
+
+      append openPgpSignCommand \
+          { --passphrase-file [formatExecArgument [getOpenPgpPassphraseFile]]}
+
+      append openPgpSignCommand { --batch --yes {${fileName}}}
+    }
+  }
+
+  #
+  # NOTE: This procedure sets up the default values for all configuration
+  #       parameters used by the package repository client.  If the force
+  #       argument is non-zero, any existing values will be overwritten
+  #       and set back to their default values.
+  #
+  proc setupPackageUnknownVars { force } {
+    #
+    # NOTE: What is the default set of API keys if none were set explicitly?
+    #       This list is subject to change at any time -AND- may be empty or
+    #       may contain non-working API keys, please do not rely on it.
+    #
+    variable autoApiKeys; # DEFAULT: 0000000000000000000000000000000000000000
+
+    if {$force || ![info exists autoApiKeys]} then {
+      set autoApiKeys [list 0000000000000000000000000000000000000000]
+    }
+
+    #
+    # NOTE: Automatically install our [package unknown] handler when this
+    #       package is loaded?
+    #
+    variable autoHook; # DEFAULT: true
+
+    if {$force || ![info exists autoHook]} then {
+      set autoHook true
+    }
+
+    #
+    # NOTE: Automatically [tcl load] when this package is loaded from the
+    #       Eagle language?
+    #
+    variable autoLoadTcl; # DEFAULT: <automatic>
+
+    if {$force || ![info exists autoLoadTcl]} then {
+      #
+      # TODO: Better automatic detection of native Tcl installs here?
+      #
+      if {[isEagle] && [catch {
+        tcl select -flags +TrustedOnly -robustify -architecture
+      }] == 0} then {
+        set autoLoadTcl true
+      } else {
+        set autoLoadTcl false
+      }
+    }
+
+    #
+    # NOTE: Automatically [package require Garuda] when this package is
+    #       loaded from the Tcl language?
+    #
+    variable autoRequireGaruda; # DEFAULT: <automatic>
+
+    if {$force || ![info exists autoRequireGaruda]} then {
+      #
+      # TODO: Better automatic detection of Garuda here?
+      #
+      if {![isEagle] && \
+          [llength [package versions Garuda]] > 0} then {
+        set autoRequireGaruda true
+      } else {
+        set autoRequireGaruda false
+      }
+    }
+
+    #
+    # NOTE: The command to use when creating Harpy signatures for downloaded
+    #       package scripts.
+    #
+    variable harpySignCommand; # DEFAULT: {${shellFileName}} -file ...
+
+    if {$force || ![info exists harpySignCommand]} then {
+      set harpySignCommand ""
+
+      append harpySignCommand {${runtimeCommandLine}}
+      append harpySignCommand { -noArgumentsFileName -file {${toolFileName}}}
+      append harpySignCommand { {${scriptFileName}} {${vendor}}}
+    }
+
+    #
+    # NOTE: Verify that the package script matches the current language
+    #       when called from the [package unknown] handler?
+    #
+    variable strictUnknownLanguage; # DEFAULT: true
+
+    if {$force || ![info exists strictUnknownLanguage]} then {
+      set strictUnknownLanguage true
+    }
+
+    #
+    # NOTE: Emit diagnostic messages when a [package unknown] handler
+    #       is called?
+    #
+    variable verboseUnknownResult; # DEFAULT: false
+
+    if {$force || ![info exists verboseUnknownResult]} then {
+      set verboseUnknownResult false
+    }
+
+    #
+    # NOTE: Emit diagnostic messages when a URI is fetched?
+    #
+    variable verboseUriDownload; # DEFAULT: false
+
+    if {$force || ![info exists verboseUriDownload]} then {
+      set verboseUriDownload false
+    }
+  }
+
+  #
+  # NOTE: This procedure is the primary entry point to the package repository
+  #       client.  It attempts to lookup the specified package using the
+  #       currently configured package repository server.  The package
+  #       argument is the name of the package being sought, it cannot be an
+  #       empty string.  The version argument must be a specific version -OR-
+  #       a package specification that conforms to TIP #268.  The caller
+  #       argument must be an empty string -OR- the literal string "handler".
+  #
+  # <public>
+  proc getPackageFromRepository { package version caller } {
+    #
+    # NOTE: Get the list of API keys and try each one, in order, until
+    #       the package is found.
+    #
+    set apiKeys [getApiKeys]
+
+    #
+    # NOTE: Issue the non-anonymous lookup request to the remote
+    #       package repository.
+    #
+    set data [getLookupData $apiKeys $package $version]
+
+    #
+    # NOTE: Attempt to grab the lookup code from the non-anonymous
+    #       response data.
+    #
+    set code [getResponseCodeFromRawData $data]
+
+    #
+    # NOTE: If necessary, fallback with to an anonymous request.
+    #
+    if {![isResponseCodeOk $code]} then {
+      #
+      # NOTE: Issue the anonymous lookup request to the remote
+      #       package repository.
+      #
+      set data [getLookupData [list] $package $version]
+
+      #
+      # NOTE: Attempt to grab the lookup code from the anonymous
+      #       response data.
+      #
+      set code [getResponseCodeFromRawData $data]
+    }
+
+    #
+    # NOTE: Attempt to grab the lookup data from the response data.
+    #       Upon failure, this should contain the error message.
+    #
+    set result [getResponseResultFromRawData $data]
+
+    #
+    # NOTE: Did the lookup operation fail?
+    #
+    if {![isResponseCodeOk $code]} then {
+      #
+      # NOTE: Is there an error message?
+      #
+      if {[string length $result] > 0} then {
+        #
+        # NOTE: Yes.  Use the returned error message verbatim.
+        #
+        error $result
+      } else {
+        #
+        # NOTE: No.  Use the whole response data string as the error
+        #       message.
+        #
+        error $data
+      }
+    }
+
+    #
+    # NOTE: Process the lookup data into the pieces of metadata that we
+    #       need to load the requested package.
+    #
+    extractAndVerifyLookupMetadata $result metadata $caller
+
+    #
+    # NOTE: Attempt to load the requested package using the metadata
+    #       extracted in the previous step.
+    #
+    processLookupMetadata metadata
+  }
+
+  #
+  # NOTE: This package requires that support for namespaces, which is an
+  #       optional feature of Eagle, must be enabled.
+  #
+  if {[isEagle] && ![namespace enable]} then {
+    error "namespaces must be enabled for this package"
+  }
+
+  #
+  # NOTE: Attempt to read optional settings file now.  This may override
+  #       one or more of the variable setup in the next step.
+  #
+  maybeReadSettingsFiles [info script]
+
+  #
+  # NOTE: Attempt to read optional API keys file now.  This may add API
+  #       keys for use by this script.
+  #
+  maybeReadApiKeysFile
+
+  #
+  # NOTE: Setup the server and URI variables, in this namespace, that are
+  #       used by this script.
+  #
+  setupRepositoryServerVars false
+  setupRepositoryUriVars false
+
+  #
+  # NOTE: Setup the OpenPGP implementation related variables, in this
+  #       namespace, that are used by this script.
+  #
+  setupRepositoryOpenPgpVars false
+
+  #
+  # NOTE: Setup the variables, within this namespace, used by this script.
+  #
+  setupPackageUnknownVars false
+
+  #
+  # NOTE: Setup for our [package unknown] handler, which may involve a few
+  #       different operations.
+  #
+  setupPackageUnknownHandler
+
+  #
+  # NOTE: Provide the package to the interpreter.
+  #
+  package provide Eagle.Package.Repository 1.0.10
+}
+

@@ -1,0 +1,1936 @@
+<div class="fossil-doc" data-title="Package Client Toolset API v1"><br>
+
+<big><big><span style="font-family: monospace;">Generated [2024-07-19 @ 22:45:31 UTC] from checkout [8a7cafabbd56a16c469c7ad9ae863e12a8f6f4d3 2024-07-13 18:55:59 UTC]</span></big></big><br><br><hr><br>
+
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/common.tcl&amp;ln=272">::Eagle::Tools::Common::getFileViaHttp</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;uri&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;redirectLimit&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;channel&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;quiet&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument list &quot;args&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure was stolen from the &quot;common.tcl&quot; script.  It is<br>
+designed to process a single HTTP request, including any HTTP<br>
+3XX redirects (up to the specified limit), and return the raw<br>
+HTTP response data.  It may raise any number of script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/common.tcl&amp;ln=97">::Eagle::Tools::Common::setupCommonVariables</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;force&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure was stolen from the &quot;common.tcl&quot; script.  This<br>
+procedure sets up the default values for all HTTP configuration<br>
+parameters used by this package.  If the force argument is<br>
+non-zero, any existing values will be overwritten and set back<br>
+to their default values.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/common.tcl&amp;ln=173">::Eagle::Tools::Common::pageOut</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;channel&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;string&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure was stolen from the &quot;common.tcl&quot; script.  It is<br>
+designed to emit a message to the console.  The channel argument<br>
+is the channel where the message should be written.  The string<br>
+argument is the content of the message to emit.  If the channel<br>
+argument is an empty string, nothing is written.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/common.tcl&amp;ln=187">::Eagle::Tools::Common::pageLog</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;string&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure was stolen from the &quot;common.tcl&quot; script.  It is<br>
+designed to emit a message to the HTTP client log.  The string<br>
+argument is the content of the message to emit.  If the string<br>
+argument is an empty string, nothing is written.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/common.tcl&amp;ln=201">::Eagle::Tools::Common::setupPageProgress</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;channel&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;type&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;milliseconds&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure was stolen from the &quot;common.tcl&quot; script.  It is<br>
+designed to setup the pending progress indicator callback and<br>
+save its working state.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/common.tcl&amp;ln=221">::Eagle::Tools::Common::cancelPageProgress</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure was stolen from the &quot;common.tcl&quot; script.  It is<br>
+designed to cancel the pending progress indicator callback and<br>
+cleanup its working state.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/common.tcl&amp;ln=247">::Eagle::Tools::Common::pageProgress</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/common.tcl">common.tcl</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;channel&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;type&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;milliseconds&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure was stolen from the &quot;common.tcl&quot; script.  It is<br>
+designed to emit a progress indicator while an HTTP request is<br>
+being processed.  The channel argument is the Tcl channel where<br>
+the progress indicator should be emitted.  The type argument is<br>
+the single-character progress indicator.  The milliseconds<br>
+argument is the number of milliseconds to wait until the next<br>
+periodic progress indicator should be emitted.  This procedure<br>
+reschedules its own execution.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=385">::PackageDownloader::useServerId</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;serverId&quot; with default value &quot;&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure modifies the URN variables used by the package<br>
+downloader client so that one or more alternative (private?)<br>
+backend file servers may be used.  The serverId argument must<br>
+consist only of alphanumeric characters and it must begin with<br>
+a letter.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=425">::PackageDownloader::useVersionId</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;versionId&quot; with default value &quot;&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure modifies the version variables used by the package<br>
+downloader client so that a specific version will be used.  The<br>
+versionId argument must consist only of hexadecimal characters.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1411">::PackageDownloader::resetCookieAndLoginSimple</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure resets the currently configured login cookie, if<br>
+any, and then attempts to login using the configured package<br>
+repository server API key -OR- using the public access account.<br>
+Upon success, it will set the login cookie to the one from the<br>
+raw response data.  Upon failure, a script error will be raised.<br>
+There are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1461">::PackageDownloader::resetCookieAndLogin</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;userName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;password&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure resets the currently configured login cookie, if<br>
+any, and then attempts to login using the specified user name and<br>
+password.  Upon success, it will set the login cookie to the one<br>
+from the raw response data.  Upon failure, a script error will be<br>
+raised.  The userName argument must be the name of a package file<br>
+server user with at least Fossil Check-Out (o) permissions on the<br>
+package file server.  The password argument must be the plaintext<br>
+password that is associated with the specified user name.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1514">::PackageDownloader::logoutAndResetCookie</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to logout using the currently configured<br>
+login cookie, if any, and then resets the login cookie.  There<br>
+are no arguments.  This procedure may raise a script error.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1747">::PackageDownloader::checkForHigherVersion</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;language&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;version&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;platform&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;packageName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;usePgp&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure checks if there is a higher version available of the<br>
+specified package on the package file server.  The language argument<br>
+must be one of the literal strings &quot;eagle&quot;, &quot;tcl&quot;, or &quot;client&quot;.  The<br>
+version argument must be one of the literal strings &quot;8.4&quot;, &quot;8.5&quot;, or<br>
+&quot;8.6&quot; when the language is &quot;tcl&quot; -OR- the literal string &quot;1.0&quot; when<br>
+the language is either &quot;eagle&quot; or &quot;client&quot;.  The platform argument<br>
+must be an empty string -OR- one of the literal strings &quot;msil&quot; or<br>
+&quot;neutral&quot;, or one of the values returned by the [getPlatform]<br>
+procedure.  An empty string means that the associated package does<br>
+not require a specific platform.  The packageName argument is a<br>
+directory name relative to the language and version-specific<br>
+directory on the package file server and may be an empty string.<br>
+The usePgp argument should be non-zero when an OpenPGP signature<br>
+file needs to be downloaded and verified for the downloaded file.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=2055">::PackageDownloader::downloadFiles</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;language&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;version&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;platform&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileNames&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;options&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to download a list of files, optionally<br>
+persisting them for subsequent uses by the target language.<br>
+The language argument must be one of the literal strings &quot;eagle&quot;,<br>
+&quot;tcl&quot;, or &quot;client&quot;.  The version argument must be one of the<br>
+literal strings &quot;8.4&quot;, &quot;8.5&quot;, or &quot;8.6&quot; when the language is &quot;tcl&quot;<br>
+-OR- the literal string &quot;1.0&quot; when the language is either &quot;eagle&quot;<br>
+or &quot;client&quot;.  The platform argument must be an empty string -OR-<br>
+one of the literal strings &quot;msil&quot; or &quot;neutral&quot;, or one of the values<br>
+returned by the [getPlatform] procedure.  An empty string means<br>
+that the associated package does not require a specific platform.<br>
+The fileNames argument must be a well-formed list of file names to<br>
+download, each one relative to the language and version-specific<br>
+directory on the package file server.  The options argument must<br>
+be a dictionary of name/value pairs.  The -persistent option should<br>
+be non-zero if the downloaded files should be saved to permanent<br>
+storage for subsequent use.  The -usePgp option should be non-zero<br>
+when an OpenPGP signature file needs to be downloaded and verified<br>
+for each downloaded file.  The -useAutoPath option should be<br>
+non-zero to modify the auto-path to include the temporary or<br>
+persistent directories containing the downloaded files.  The<br>
+-allowUpdate option should be non-zero to allow existing package<br>
+files to be overwritten.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=2281">::PackageDownloader::maybeAddTemporaryPackagesToAutoPath</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;language&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;options&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;pattern&quot; with default value &quot;&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure adds temporary package directories to the auto-path<br>
+of the specified language (i.e. native Tcl or Eagle).  Directories<br>
+will not be added if already present.  The language argument must<br>
+be the literal string &quot;eagle&quot; or the literal string &quot;tcl&quot;.  The<br>
+pattern argument is the optional pattern to match against each of<br>
+the candidate temporary package directories.  If the pattern is an<br>
+empty string then all candidate temporary package directories will<br>
+be added to the auto-path; otherwise, the pattern will be matched<br>
+against the final portion of the temporary package directory name<br>
+and only those temporary package directories that actually match<br>
+the pattern will be added to the auto-path.  The options argument<br>
+must be a dictionary of name/value pairs.  This procedure does not<br>
+currently support any options.  This procedure may raise script<br>
+errors.  This procedure assumes the local temporary directory is<br>
+writable only by applications that are implicitly trusted by the<br>
+current user.  If this assumption does not hold on your platform,<br>
+DO NOT USE THIS PROCEDURE AS IT MAY BE UNSAFE.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=600">::PackageDownloader::downloadAndSaveOpenPgpKeyFile</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to download the Package Signing Keys from<br>
+the remote server and save it to a local file.  This procedure may<br>
+raise script errors.  The fileName argument is the name of the file<br>
+where the downloaded data should be written.  This procedure is only<br>
+intended to be used from the &quot;pkgr_setup.eagle&quot; tool script and may<br>
+go away in later versions of this package.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=999">::PackageDownloader::verifyPackageName</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;packageName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure verifies that the specified value is indeed a valid<br>
+package name.  The packageName argument is the value to verify.<br>
+This procedure may raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1012">::PackageDownloader::verifyPackagePatchLevel</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;patchLevel&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure verifies that the specified value is indeed a valid<br>
+patch level.  The patchLevel argument is the value to verify.  This<br>
+procedure may raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1033">::PackageDownloader::verifyLanguageAndVersion</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;language&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;version&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;varName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure verifies the combination of language and version<br>
+specified by the caller.  The language argument must be one of the<br>
+literal strings &quot;eagle&quot;, &quot;tcl&quot;, or &quot;client&quot;.  The version argument<br>
+must be one of the literal strings &quot;8.4&quot;, &quot;8.5&quot;, &quot;8.6&quot;, or &quot;8.7&quot;<br>
+when the language is &quot;tcl&quot; -OR- the literal string &quot;1.0&quot; when the<br>
+language is &quot;eagle&quot;.  When the language is &quot;client&quot;, the version<br>
+match the major and minor portions of &quot;1.0&quot; and any remaining<br>
+portions must be numeric.  The varName argument is the name of a<br>
+scalar variable in the context of the immediate caller that will<br>
+receive a boolean value indicating if the specified language is<br>
+actually a reference to the package downloader client itself.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1066">::PackageDownloader::getPlatform</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns the name of the current platform.  There are<br>
+no arguments.  An empty string will be returned if the name of the<br>
+current platform cannot be determined for any reason.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1147">::PackageDownloader::verifyVersionId</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;versionId&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure verifies that the specified value is indeed a valid<br>
+version identifier.  The versionId argument is the value to verify.<br>
+This procedure may raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1166">::PackageDownloader::verifyPlatform</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;platform&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;varName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure verifies the platform specified by the caller.  The<br>
+platform argument must be an empty string -OR- one of the literal<br>
+strings &quot;msil&quot; or &quot;neutral&quot;, or one of the values returned by the<br>
+[getPlatform] procedure.  An empty string means that the associated<br>
+entity does not require a specific platform.  The varName argument<br>
+is the name of a variable in the context of the immediate caller<br>
+that will receive a modified platform name, if applicable.  Upon<br>
+failure, a script error will be raised.  The return value is<br>
+undefined.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1438">::PackageDownloader::maybeResetCookieAndLoginSimple</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to login using the configured package<br>
+repository server API key -OR- using the public access account,<br>
+if not already logged in.  Upon success, it will set the login<br>
+cookie to the one from the raw response data.  Upon failure, a<br>
+script error will be raised.  There are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=27">::PackageDownloader::pkgLog</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;string&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure emits a message to the package downloader client<br>
+log.  The string argument is the content of the message to emit.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=39">::PackageDownloader::setupDownloadServerVars</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;force&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure sets up the default values for all URN configuration<br>
+parameters used by the package downloader client.  If the force<br>
+argument is non-zero, any existing values will be overwritten and<br>
+set back to their default values.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=108">::PackageDownloader::setupDownloadVersionVars</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;force&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure sets up the default values for all version<br>
+configuration parameters used by the package downloader client.<br>
+If the force argument is non-zero, any existing values will be<br>
+overwritten and set back to their default values.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=126">::PackageDownloader::setupDownloadUriVars</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;force&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure sets up the default values for all URI configuration<br>
+parameters used by the package downloader client.  If the force<br>
+argument is non-zero, any existing values will be overwritten and<br>
+set back to their default values.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=210">::PackageDownloader::setupDownloadVars</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;script&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;force&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure sets up the default values for all configuration<br>
+parameters used by the package downloader client.  The script<br>
+argument is the fully qualified path and file name for the script<br>
+being evaluated.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=450">::PackageDownloader::uriEscape</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;name&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure escapes a single name/value pair for use in a URI<br>
+query string.  The name argument is the name of the parameter.<br>
+The value argument is the value of the parameter.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=466">::PackageDownloader::getPersistentRootDirectory</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns the root directory where any packages that<br>
+are downloaded should be saved to permanent storage for subsequent<br>
+use.  There are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=490">::PackageDownloader::verifyPersistentRootDirectory</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure checks the configured persistent root directory for<br>
+downloaded packages.  If any checks fail, a script error is raised.<br>
+There are no arguments.  The return value is undefined.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=518">::PackageDownloader::getPackageIndexFileName</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;language&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns the name of the package index file for the<br>
+language specified by the language argument.  An empty string will<br>
+be returned if the language is unsupported or unrecognized.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=539">::PackageDownloader::maybeCreateRootTclPackageIndex</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure, which is only used for native Tcl, generates a<br>
+&quot;root&quot; package index file (i.e. &quot;pkgIndex.tcl&quot;) suitable for<br>
+use with native Tcl 8.4 (or higher).  It will recursively scan<br>
+for all other native Tcl package index files that are within the<br>
+configured persistent root directory and [source] them, thereby<br>
+causing all packages located within them to become available.<br>
+Since Eagle (by default) already performs recursive searches for<br>
+its package index files, this procedure is not needed for Eagle.<br>
+The return value is undefined.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=659">::PackageDownloader::isOpenPgpSignatureFileName</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;nameOnly&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns non-zero if the specified file seems to be<br>
+an OpenPGP signature file.  The fileName argument is the name of<br>
+the file to check, which may or may not exist.  The nameOnly<br>
+argument should be non-zero to ignore the contents of the file.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=710">::PackageDownloader::maybeVerifyOpenPgpSignature</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;forcePgp&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to verify the specified OpenPGP signature<br>
+file.  If the forcePgp parameter is non-zero verification will be<br>
+attempted even when the specified file does not appear to be an<br>
+OpenPGP signature file.  This procedure may raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=738">::PackageDownloader::getAutoPath</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;language&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns the auto-path for the language specified by<br>
+the language argument.  An empty list is returned if the auto-path<br>
+does not exist in the target language.  This procedure may raise<br>
+script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=786">::PackageDownloader::addToAutoPath</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;language&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;directory&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure adds a directory to the auto-path of the specified<br>
+language (i.e. native Tcl or Eagle).  The directory will not be<br>
+added if it is already present.  The language argument must be the<br>
+literal string &quot;eagle&quot; or the literal string &quot;tcl&quot;.  The directory<br>
+argument is the fully qualified path for the directory to add to<br>
+the auto-path.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=835">::PackageDownloader::maybeAddToAutoPath</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;language&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;directory&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure adds a directory to the auto-path of the specified<br>
+language (i.e. native Tcl or Eagle).  The directory will not be<br>
+added if it is already present.  The language argument must be the<br>
+literal string &quot;eagle&quot; or the literal string &quot;tcl&quot;.  The directory<br>
+argument is the fully qualified path for the directory to add to<br>
+the auto-path.  The directory will not be added if it falls under<br>
+a directory already in the auto-path.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=908">::PackageDownloader::isMonoInstalled</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to verify that an instance of Mono and its<br>
+associated runtimes are installed locally.  There are no arguments.<br>
+The return value is non-zero if Mono appears to be installed and<br>
+available for use; otherwise, the return value is zero.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=942">::PackageDownloader::isDotNetCoreInstalled</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to verify that an instance of .NET Core<br>
+and its associated runtimes are installed locally.  There are no<br>
+arguments.  The return value is non-zero if .NET Core appears to<br>
+be installed and available for use; otherwise, the return value<br>
+is zero.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=976">::PackageDownloader::canUseMsilPlatform</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to verify that some runtime is available to<br>
+run CLR applications locally (e.g. the .NET Framework or Mono JIT).<br>
+There are no arguments.  The return value is non-zero if it appears<br>
+that CLR applications should be runnable locally; otherwise, the<br>
+return value is zero.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1295">::PackageDownloader::haveValidLoginCookie</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure checks the current login cookie to make sure that<br>
+it exists -AND- conforms to the correct format.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1325">::PackageDownloader::getPackageFile</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;uri&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;allowHtml&quot; with default value &quot;false&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure issues a request to an HTTP(S) server.  It returns<br>
+the raw response data verbatim.  It may raise a script error.  It<br>
+will always use the currently configured HTTP(S) login cookie, if<br>
+any; therefore, it should really only be used for requests to the<br>
+package file server.  The uri argument is the fully qualified URI<br>
+to request.  The allowHtml argument should be non-zero if raw HTML<br>
+should be allowed in the response data.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1398">::PackageDownloader::getDownloadVarNamePrefix</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns the prefix for fully qualified variable<br>
+names that MAY be present in the global namespace.  There are<br>
+no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1568">::PackageDownloader::getUniqueTempDirectory</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;prefix&quot; with default value &quot;&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns a unique temporary directory where one or<br>
+more files may be saved.  The prefix argument is a prefix for the<br>
+directory name and it may be an empty string.  There is no attempt<br>
+to actually create the resulting directory.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1598">::PackageDownloader::createInterp</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;varName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure creates a new interpreter, which may be &quot;safe&quot;, and<br>
+places a reference to it in a variable in the context of the caller<br>
+identified by the varName argument.  The created interpreter has a<br>
+fully functioning [package] command ensemble; all other commands do<br>
+nothing and return nothing.  This procedure may raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1675">::PackageDownloader::getIfNeededVersions</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;interp&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure evaluates a script file and attempts to determine the<br>
+list of new [package ifneeded] scripts added by it.  When successful<br>
+it returns a list-of-lists.  Each element of the outer list contains<br>
+a package name and the list of its versions in descending order; in<br>
+the event of failure, empty lists may be returned for the outer list<br>
+or for a list of versions.  The interp argument is the interp to use<br>
+when evaluating the file specified by the fileName argument.  This<br>
+procedure may raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1698">::PackageDownloader::extractVersionsFromFile</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to extract a package version information<br>
+from the specified file.  The fileName argument is the local file<br>
+name to read.  This procedure may raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1810">::PackageDownloader::guessPackageNameFromFileNames</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;language&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileNames&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to guess a package name based on a list of<br>
+its files.  It relies upon the fact that all packages must include<br>
+a package index file.  The language argument must be one of the<br>
+literal strings &quot;eagle&quot;, &quot;tcl&quot;, or &quot;client&quot;.  The fileNames argument<br>
+must be the list of file names to be downloaded.  The package name,<br>
+if one can be detected, is returned; otherwise, an empty string will<br>
+be returned.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1844">::PackageDownloader::downloadAllPlatforms</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;language&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;version&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;packageName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileNames&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;usePgp&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure downloads a manitest from the package file server,<br>
+writing its contents to the specified local file name.  It can also<br>
+verify the OpenPGP signature.  The language argument must be one of<br>
+the literal strings &quot;eagle&quot;, &quot;tcl&quot;, or &quot;client&quot;.  The version<br>
+argument must be one of the literal strings &quot;8.4&quot;, &quot;8.5&quot;, or &quot;8.6&quot;<br>
+when the language is &quot;tcl&quot; -OR- the literal string &quot;1.0&quot; when the<br>
+language is either &quot;eagle&quot; or &quot;client&quot;.  The packageName argument<br>
+is a directory name relative to the language and version-specific<br>
+directory on the package file server and may be an empty string.<br>
+The fileNames argument is the list of file names to be downloaded.<br>
+The usePgp argument should be non-zero when an OpenPGP signature<br>
+needs to be verified for the downloaded file.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1948">::PackageDownloader::downloadOneUriToFile</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;localFileName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;uri&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;usePgp&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;forcePgp&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure downloads a single URI from the package file server<br>
+and writes the result to a local file.  The localFileName argument<br>
+is the file name where the downloaded file should be written.  The<br>
+The uri argument is the URI to download.  The usePgp argument should<br>
+be non-zero when the OpenPGP signature file needs to be verified for<br>
+the downloaded file.  The return value is undefined.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle&amp;ln=1989">::PackageDownloader::downloadOneFile</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgd.eagle">pkgd.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;language&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;version&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;platform&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;localFileName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;usePgp&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure downloads a single file from the package file server,<br>
+writing its contents to the specified local file name.  It can also<br>
+verify the OpenPGP signatures.  When an OpenPGP signature file is<br>
+downloaded, this procedure assumes the corresponding data file was<br>
+already downloaded (i.e. since OpenPGP needs both to perform the<br>
+signature checks).  The language argument must be one of the<br>
+literal strings &quot;eagle&quot;, &quot;tcl&quot;, or &quot;client&quot;.  The version argument<br>
+must be one of the literal strings &quot;8.4&quot;, &quot;8.5&quot;, or &quot;8.6&quot; when the<br>
+language is &quot;tcl&quot; -OR- the literal string &quot;1.0&quot; when the language<br>
+is either &quot;eagle&quot; or &quot;client&quot;.  The platform argument must be an<br>
+empty string -OR- one of the literal strings &quot;msil&quot; or &quot;neutral&quot;, or<br>
+one of the values returned by the [getPlatform] procedure.  An empty<br>
+string means that the associated package does not require a specific<br>
+platform.  The fileName argument is a file name relative to the<br>
+language and version-specific directory on the package file server.<br>
+The localFileName argument is the file name where the downloaded<br>
+file should be written.  The usePgp argument should be non-zero when<br>
+the OpenPGP signature file needs to be verified for the downloaded<br>
+file.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=315">::PackageRepository::isHarpyCertificate</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns non-zero if the specified string value<br>
+looks like a Harpy (script) certificate.  The value argument is<br>
+the string to check.  The value 14 used within this procedure is<br>
+the length of the literal string &quot;&lt;/Certificate&gt;&quot;.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=339">::PackageRepository::isOpenPgpSignature</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns non-zero if the specified string value<br>
+looks like an OpenPGP signature.  The value argument is the string<br>
+to check.  The value 27 used within this procedure is the length<br>
+of the literal string &quot;-----END PGP SIGNATURE-----&quot;.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=360">::PackageRepository::getFileTempDirectory</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;envVarName&quot; with default value &quot;&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns the fully qualified name of the directory<br>
+where temporary files should be written.  The envVarName argument<br>
+is an optional extra environment variable to check (first).<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=480">::PackageRepository::openPgpMustBeInstalled</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to verify that a configured implementation<br>
+of OpenPGP is installed locally.  There are no arguments.  Script<br>
+errors are raised if any problems are found.  The return value is<br>
+undefined.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=568">::PackageRepository::verifyOpenPgpSignature</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to verify the OpenPGP signature contained<br>
+in the specified (named) file.  Non-zero is only returned if the<br>
+OpenPGP signature is verified successfully.  A script error should<br>
+not be raised by this procedure.  The fileName argument must be<br>
+the fully qualified path and file name of the OpenPGP signature<br>
+file to verify.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=727">::PackageRepository::createOpenPgpSignature</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to create an OpenPGP signature for the<br>
+specified (named) file.  Non-zero is only returned if the OpenPGP<br>
+signature is created successfully.  A script error should not be<br>
+raised by this procedure.  The fileName argument must be the fully<br>
+qualified path and file name of the file to be signed.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=825">::PackageRepository::getUniqueSuffix</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;paranoia&quot; with default value &quot;1&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns a name suffix (directory, variable, etc)<br>
+that is unique to the running process at the current point in<br>
+time.  It is used (internally) to avoid name collisions with any<br>
+preexisting variables or commands that may be present in the<br>
+global namespace.  The paranoia argument represents the relative<br>
+level of paranoia required by the caller; the higher this level,<br>
+the more uniqueness is required.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=955">::PackageRepository::useServerId</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;serverId&quot; with default value &quot;&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure modifies the URN variables used by the package<br>
+repository client so that one or more alternative (private?)<br>
+backend repository servers may be used.  The serverId argument<br>
+must consist only of alphanumeric characters and it must begin<br>
+with a letter.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=2296">::PackageRepository::maybeReadSettingsFiles</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;script&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure evaluates package repository client settings script<br>
+files, if they exists.  Any script errors raised are not masked.<br>
+The script argument must be the fully qualified path and file name<br>
+for a package client toolset script file.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Public API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=2643">::PackageRepository::getPackageFromRepository</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;package&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;version&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;caller&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure is the primary entry point to the package repository<br>
+client.  It attempts to lookup the specified package using the<br>
+currently configured package repository server.  The package<br>
+argument is the name of the package being sought, it cannot be an<br>
+empty string.  The version argument must be a specific version -OR-<br>
+a package specification that conforms to TIP #268.  The caller<br>
+argument must be an empty string -OR- the literal string &quot;handler&quot;.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=235">::PackageRepository::formatExecArgument</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns a string argument value, which may contain<br>
+spaces, for use with the [exec] command.  The value argument is<br>
+the string value to format as an [exec] argument.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=420">::PackageRepository::probeForOpenPgpInstallation</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to check for an OpenPGP installation being<br>
+installed at the default location.  There are no arguments.  If the<br>
+OpenPGP installation is detected and is not yet present in the PATH,<br>
+an attempt will be made to add it.  Non-zero will be returned if the<br>
+OpenPGP installation directory was successfully detected and added<br>
+to the PATH -OR- detecting and adding it was not necessary because<br>
+it already appeared to be available for use.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=652">::PackageRepository::createHarpyCertificate</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to create a Harpy (script) certificate for<br>
+the specified (named) file.  Non-zero is only returned if the Harpy<br>
+(script) certificate is created successfully.  A script error should<br>
+not be raised by this procedure.  The fileName argument must be the<br>
+fully qualified path and file name of the file to be signed.  This<br>
+procedure assumes that the Harpy package for Eagle is installed and<br>
+ready for use (i.e. it can find a valid license certificate).<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=766">::PackageRepository::importOpenPgpKeyFile</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;varName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to import the OpenPGP keys contained in<br>
+the specified (named) file.  Non-zero is only returned if the<br>
+OpenPGP keys are imported successfully.  A script error should<br>
+not be raised by this procedure.  The fileName argument must be<br>
+the fully qualified path and file name of the OpenPGP key file<br>
+to import.  This procedure is only intended to be used from the<br>
+&quot;pkgr_setup.eagle&quot; tool script and may go away in later versions<br>
+of this package.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=850">::PackageRepository::getApiKeys</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;prefix&quot; with default value &quot;&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;prefixOnly&quot; with default value &quot;false&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns the list of API keys to use when looking<br>
+up packages via the package repository server.  An empty list<br>
+is returned if no API keys are currently configured.  The prefix<br>
+argument is an extra variable name prefix to check prior to any<br>
+that are already configured.  The prefixOnly argument should be<br>
+non-zero to exclude any API keys other than those based on the<br>
+prefix specified by the caller.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=928">::PackageRepository::verifyMetadataLanguage</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;language&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure verifies the language specified by the caller.  The<br>
+language argument must be an empty string -OR- the literal string<br>
+&quot;Eagle&quot; or &quot;Tcl&quot;.  This procedure may raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=940">::PackageRepository::verifyServerId</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;serverId&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure verifies that the specified value is indeed a valid<br>
+server identifier.  The serverId argument is the value to verify.<br>
+This procedure may raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1009">::PackageRepository::getSubmitBaseUri</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns the base URI for the package repository<br>
+server endpoint that is used to submit packages.  There are no<br>
+arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1183">::PackageRepository::getResponseCodeFromRawData</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;data&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to extract the lookup code from the raw<br>
+HTTP response data.  The data argument is the raw HTTP response<br>
+data.  An empty string is returned if no lookup code is available.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1197">::PackageRepository::getResponseResultFromRawData</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;data&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to extract the lookup result from the raw<br>
+HTTP response data.  The data argument is the raw HTTP response<br>
+data.  An empty string is returned if no lookup result is available.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1211">::PackageRepository::isResponseCodeOk</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;code&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns non-zero if the specified lookup response<br>
+code indicates success.  The code argument is the extracted HTTP<br>
+lookup response code.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1433">::PackageRepository::makeTclReady</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure is designed for Eagle.  It attempts to load the<br>
+&quot;best&quot; native Tcl library.  It may raise any number of script<br>
+errors.  There are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1462">::PackageRepository::eagleMustBeReady</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure, which may only be used from a native Tcl script,<br>
+checks if Garuda and Eagle are loaded and ready.  If not, a script<br>
+error is raised.  There are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1486">::PackageRepository::makeEagleReady</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure is designed for native Tcl.  It attempts to load<br>
+the Garuda package and gain access to Eagle.  It may raise any<br>
+number of script errors.  There are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=170">::PackageRepository::setupRepositoryServerVars</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;force&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure sets up the default values for all URN configuration<br>
+parameters used by the package repository client.  If the force<br>
+argument is non-zero, any existing values will be overwritten and<br>
+set back to their default values.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=198">::PackageRepository::setupRepositoryUriVars</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;force&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure sets up the default values for all URI configuration<br>
+parameters used by the package repository client.  If the force<br>
+argument is non-zero, any existing values will be overwritten and<br>
+set back to their default values.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=249">::PackageRepository::formatPackageName</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;package&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;version&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns a formatted, possibly version-specific,<br>
+package name, for use in logging.  The package argument is the<br>
+name of the package.  The version argument is the version of the<br>
+package.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=259">::PackageRepository::formatResult</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;code&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;result&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns a formatted script result.  If the string<br>
+result is empty, only the return code is used.  The code argument<br>
+must be an integer Tcl return code (e.g. from [catch]) and the<br>
+result argument is the script result or error message.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=281">::PackageRepository::pkgLog</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;string&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure emits a message to the package repository client<br>
+log.  The string argument is the content of the message to emit.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=292">::PackageRepository::stringIsList</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to determine if a string is a valid list<br>
+and returns non-zero when that is true.  The value argument is<br>
+the string to check.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=390">::PackageRepository::getFileTempName</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns a unique temporary file name.  A script<br>
+error is raised if this task cannot be accomplished.  There are<br>
+no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=600">::PackageRepository::getOpenPgpPassphraseFile</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns the name of the file containing the OpenPGP<br>
+passphrase.  This procedure is only used when creating an OpenPGP<br>
+signature.  There are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=623">::PackageRepository::dequoteList</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;list&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns a list of the same size as the list argument<br>
+value.  Each element will have one pair of surrounding double quote<br>
+characters removed -IF- they are the first and last non-whitespace<br>
+character of that element.  A script error should not be raised by<br>
+this procedure.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=811">::PackageRepository::getLookupVarNamePrefix</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns the prefix for fully qualified variable<br>
+names that MAY be present in the global namespace.  There are<br>
+no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=982">::PackageRepository::getLookupBaseUri</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns the base URI for the package repository<br>
+server endpoint that is used to lookup packages.  There are no<br>
+arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1041">::PackageRepository::getLookupUri</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;apiKeys&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;package&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;version&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns the full URI to use when looking up a<br>
+specific package via the package repository server.  The apiKeys<br>
+argument is the list of API keys to use -OR- an empty list if a<br>
+public package is being looked up.  The package argument is the<br>
+name of the package being looked up, it cannot be an empty<br>
+string.  The version argument is the specific version being<br>
+looked up -OR- an empty string for any available version.  There<br>
+are no HTTP requests issued by this procedure; it simply returns<br>
+the URI to use.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1097">::PackageRepository::getIfNeededVersion</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;package&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;version&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns the version of the package that should be<br>
+used to lookup the associated [package ifneeded] script -OR- an<br>
+empty string if no such version exists.  The package argument is<br>
+the name of the package, it cannot be an empty string.  The<br>
+version argument is the specific version being looked up -OR- an<br>
+empty string for any available version.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1112">::PackageRepository::packageRequirementToVersion</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;requirement&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure accepts a package requirement (spec) and returns<br>
+a simple package version, if possible.  An empty string will be<br>
+returned, if appropriate (i.e. any version should be allowed).<br>
+The requirement argument must be a package specification that<br>
+conforms to TIP #268.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1144">::PackageRepository::getLookupData</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;apiKeys&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;package&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;version&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure issues an HTTP request that should return metadata<br>
+that can be used to load and/or provide the specified package.<br>
+The apiKeys argument is the list of API keys to use -OR- an empty<br>
+list if a public package is being looked up.  The package argument<br>
+is the name of the package, it cannot be an empty string.  The<br>
+version argument is the specific version being looked up -OR- an<br>
+empty string for any available version.  This procedure may raise<br>
+script errors.  All line-endings are normalized to Unix-style;<br>
+therefore, all script signatures must assume this.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1225">::PackageRepository::isValidPackageName</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;name&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;emptyOk&quot; with default value &quot;false&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns non-zero if the specified string value is a<br>
+valid package name.  The emptyOk argument can be non-zero if the<br>
+caller wishes to permit an empty string.  This procedure is shared<br>
+with the server.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1246">::PackageRepository::isValidPackageRequirement</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;requirement&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;rangeOk&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;emptyOk&quot; with default value &quot;false&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure was stolen from the &quot;common.tcl&quot; script used by the<br>
+package repository server.  It has been modified to support both<br>
+native Tcl and Eagle.  It should be noted here that TIP #268 syntax<br>
+is not supported by Eagle.  For native Tcl, the requirement argument<br>
+must be a package version or requirement conforming to the TIP #268<br>
+syntax.  For Eagle, the requirement argument must be a simple dotted<br>
+package version, with up to four components, without any &#39;a&#39; or &#39;b&#39;.<br>
+The emptyOk argument should be non-zero if an empty string should be<br>
+considered to be valid by the caller.  The rangeOk argument should<br>
+be non-zero if the version range syntax is allowed; this argument is<br>
+ignored for Eagle because it requires TIP #268 support.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1304">::PackageRepository::extractAndVerifyLookupMetadata</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;result&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;varName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;caller&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to extract the package lookup metadata from<br>
+the lookup result.  The result argument is the lookup result.  The<br>
+varName argument is the name of an array variable, in the call frame<br>
+of the immediate caller, that should receive the extracted package<br>
+lookup metadata.  The caller argument must be an empty string -OR-<br>
+the literal string &quot;handler&quot;.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1409">::PackageRepository::tclMustBeReady</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure, which may only be used from an Eagle script, checks<br>
+if a native Tcl library is loaded and ready.  If not, a script error<br>
+is raised.  There are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1513">::PackageRepository::eagleHasSecurity</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns non-zero if the current script is being<br>
+evaluated in Eagle with signed-only script security enabled.<br>
+There are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1545">::PackageRepository::processLookupMetadata</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;varName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure uses the package lookup metadata.  If the package<br>
+script is properly signed, an attempt will be made to evaluate it<br>
+in the target language.  If the script was signed using OpenPGP,<br>
+then a conforming implementation of the OpenPGP specification (e.g.<br>
+gpg2) must be installed locally.  If the script was signed using<br>
+Harpy then Garuda, Eagle, and Harpy must be installed locally.<br>
+This procedure is designed to work for both native Tcl and Eagle<br>
+packages.  Additionally, it is designed to work when evaluated<br>
+using either native Tcl or Eagle; however, it is up to the package<br>
+script itself to either add the package or provide the package to<br>
+the language(s) supported by that package.  The varName argument<br>
+is the name of an array variable in the call frame of the<br>
+immediate caller, that contains the package lookup metadata.  This<br>
+procedure may raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1916">::PackageRepository::isPackagePresent</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;package&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;version&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns non-zero if the specified package appears to<br>
+be present.  The package argument is the name of the package being<br>
+sought, it cannot be an empty string.  The version argument must be<br>
+a specific version -OR- a package specification that conforms to TIP<br>
+#268.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=1948">::PackageRepository::isPackageAvailable</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;package&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;version&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns non-zero if the specified package appears to<br>
+be available.  The package argument is the name of the package being<br>
+sought, it cannot be an empty string.  The version argument must be<br>
+a specific version -OR- a package specification that conforms to TIP<br>
+#268.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=2001">::PackageRepository::canDownloadPackage</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;package&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns non-zero if the specified package can be<br>
+downloaded, i.e. because it is not required for the downloading<br>
+process itself to be functional, etc.  The package argument is<br>
+the name of the package to check.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=2047">::PackageRepository::setupPackageUnknownHandler</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure performs initial setup of the package repository<br>
+client, using the current configuration parameters.  There are<br>
+no arguments.  It may load the Garuda package when evaluated in<br>
+native Tcl.  It may load a native Tcl library when evaluated in<br>
+Eagle.  It may install the [package unknown] hook.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=2087">::PackageRepository::isPackageUnknownHandlerHooked</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns non-zero if the [package unknown] handler<br>
+has already been hooked by the package repository client.  There<br>
+are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=2099">::PackageRepository::hookPackageUnknownHandler</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to hook the [package unknown] handler.  It<br>
+will raise a script error if this has already been done.  The old<br>
+[package unknown] handler is saved and will be used by the new one<br>
+as part of the overall package loading process.  There are no<br>
+arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=2117">::PackageRepository::unhookPackageUnknownHandler</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to unhook the [package unknown] handler.<br>
+It will raise a script error if the [package unknown] handler is<br>
+not hooked.  The old [package unknown] handler is restored and<br>
+the saved [package unknown] handler is cleared.  There are no<br>
+arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=2133">::PackageRepository::runSavedPackageUnknownHandler</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;package&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;version&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+The procedure runs the saved [package unknown] handler.  Any script<br>
+errors are raised to the caller.  The package and version arguments<br>
+are passed in from the current [package unknown] handler verbatim.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=2155">::PackageRepository::packageUnknownHandler</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;package&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument &quot;version&quot; with default value &quot;&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure is the [package unknown] handler entry point called<br>
+by native Tcl and Eagle.  The package argument is the name of the<br>
+package being sought, it cannot be an empty string.  The version<br>
+argument must be a specific version -OR- a package specification<br>
+that conforms to TIP #268.  This version argument must be optional<br>
+here, because Eagle does not add a version argument when one is<br>
+not explicitly supplied to the [package require] sub-command.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=2263">::PackageRepository::getSettingsPrefixes</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;scriptName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;envVarName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;all&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns the list of possible prefixes that should be<br>
+considered for settings files.  The scriptName parameter is the name<br>
+of the script being evaluated, if any.  The envVarName parameter is<br>
+the name of an environment variable associated with the script being<br>
+evaluated, if any.  The all parameter should be non-zero to include<br>
+all available prefixes, even if they are inapplicable to the current<br>
+configuration.  This procedure may raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=2386">::PackageRepository::maybeReadApiKeysFile</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure evaluates a package repository client API keys<br>
+script file, if it has been configured -AND- actually exists.<br>
+Any script errors raised are not masked.  The evaluated script<br>
+file should (normally) modify the &quot;::pkgr_api_keys&quot; variable<br>
+in order to add API keys for use with the package repository<br>
+client.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=2408">::PackageRepository::setupRepositoryOpenPgpVars</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;force&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure sets up the default values for all configuration<br>
+parameters used to interact with the OpenPGP implementation.<br>
+If the force argument is non-zero, any existing values will be<br>
+overwritten and set back to their default values.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle&amp;ln=2530">::PackageRepository::setupPackageUnknownVars</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgr.eagle">pkgr.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;force&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure sets up the default values for all configuration<br>
+parameters used by the package repository client.  If the force<br>
+argument is non-zero, any existing values will be overwritten<br>
+and set back to their default values.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=1215">::PackageUploader::setupArgumentData</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;argv&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure initializes the array containing data derived from<br>
+the command line arguments, if any.  The argv argument should be<br>
+the list of command line arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=1290">::PackageUploader::haveArgumentData</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure is used to determine if all the package submission<br>
+data is available.  There are no arguments.  Non-zero is returned<br>
+if all the package submission data is available.  This procedure<br>
+should not raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=1440">::PackageUploader::submitEventHandler</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument list &quot;args&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure is an event handler.  It handles the submit button in<br>
+both Tk and Eagle.  It starts the package submission process.  The<br>
+args argument is not really used, it is a placeholder to make this<br>
+procedure more portable between Tcl and Eagle.  This procedure may<br>
+raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=1583">::PackageUploader::setupWinFormsUserInterface</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure creates the user interface for this tool using Eagle<br>
+and WinForms.  The existing argument data, if any, will be used to<br>
+populate it.  There are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Internal API Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=1785">::PackageUploader::setupTkUserInterface</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure creates the user interface for this tool using Tcl<br>
+and Tk.  The existing argument data, if any, will be used to<br>
+populate it.  There are no arguments.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=29">::PackageUploader::setupUploadVars</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;force&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure sets up the default values for all configuration<br>
+parameters used by the package uploader client.  If the force<br>
+argument is non-zero, any existing values will be overwritten<br>
+and set back to their default values.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=233">::PackageUploader::setupCheckoutVars</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;force&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure sets up the default values for all configuration<br>
+parameters used by the package uploader client that require the<br>
+location of the checkout directory.  If the force argument is<br>
+non-zero, any existing values will be overwritten and set back<br>
+to their default values.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=253">::PackageUploader::formatStringMapValue</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;value&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns a string value, formatted for use within a<br>
+script block being processed by the [string map] command.  The<br>
+value argument is the string value to format.  No return value is<br>
+reserved to indicate an error.  This procedure may not raise any<br>
+script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=273">::PackageUploader::countCommonPathParts</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;path1&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;path2&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure counts the common path components for two paths.  The<br>
+count is returned, zero if there are no common path components.  The<br>
+path1 and path2 arguments are the paths to compare.  This procedure<br>
+may not raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=301">::PackageUploader::getCommonContainingDirectory</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileNames&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure processes a list of (fully?) qualified file names and<br>
+tries to determine their common containing directory, if any.  The<br>
+fileNames argument is the list of (fully?) qualified file names to<br>
+process.  This procedure may not raise script errors.  If there is<br>
+no common containing directory, an empty string is returned.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=347">::PackageUploader::getRelativeFileNames</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileNames&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;maximumLevels&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to process a list of (fully?) qualified file<br>
+names and return the corresponding list of relative file names.  The<br>
+fileNames argument is the list of (fully?) qualified file names to<br>
+process.  The maximumLevels argument is the maximum path depth that<br>
+is allowed for all file names.  This procedure may raise script<br>
+errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=393">::PackageUploader::getScriptChunkForFileNames</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileNames&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;maximumLevels&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to create a script chunk that appends the<br>
+specified list of file names to a list variable.  The fileNames<br>
+argument is the list of (fully?) qualified file names to append to<br>
+the list variable.  The maximumLevels argument is the maximum path<br>
+depth that is allowed for all file names.  This procedure may raise<br>
+script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=427">::PackageUploader::createRepositoryScript</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;serverId&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;versionId&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;language&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;version&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;platform&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileNames&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;options&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure creates and returns a script block designed for use<br>
+with the package repository server in order to download and provide<br>
+a package consisting of a set of files.  The serverId argument is<br>
+the identifier for the specific server to use, if any.  The<br>
+versionId argument is the identifier for the specific version to use,<br>
+if any.  The language argument must be the literal string &quot;eagle&quot; or<br>
+the literal string &quot;tcl&quot;.  The version argument must be one of the<br>
+literal strings &quot;8.4&quot;, &quot;8.5&quot;, &quot;8.6&quot;, or &quot;8.7&quot; when the language is<br>
+&quot;tcl&quot; -OR- the literal string &quot;1.0&quot; when the language is &quot;eagle&quot;.<br>
+The platform argument must be an empty string -OR- one of the literal<br>
+strings &quot;neutral&quot;, &quot;win32-arm&quot;, &quot;win32-x86&quot;, &quot;win64-arm64&quot;,<br>
+&quot;win64-ia64&quot;, or &quot;win64-x64&quot;.  The fileNames argument is the list of<br>
+(fully?) qualified file names to be downloaded when the associated<br>
+package is being provided.  The options argument is reserved for<br>
+future use, it should be an empty list.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=489">::PackageUploader::createMultipartFormData</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;boundary&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;request&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure creates textual data that conforms to the content<br>
+type &quot;multipart/form-data&quot;, per RFC 2388.  The boundary argument<br>
+is a boundary value, as specified in section 4.1 of the RFC.  The<br>
+request argument is the dictionary of name/value pairs to include<br>
+in the form body.  This procedure may not raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=515">::PackageUploader::getSubmitUri</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure returns the full URI to use when submitting a new<br>
+package to the package repository server.  There are no arguments.<br>
+This procedure may raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=555">::PackageUploader::submitPackageMetadata</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;apiKey&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;package&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;patchLevel&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;language&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;script&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;certificate&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to submit the metadata for a new package to<br>
+the package repository server.  Upon success, an empty string will<br>
+be returned.  Upon failure, a script error will be raised.  The<br>
+apiKey argument is the list of API keys to use.  The package argument<br>
+is the name of the package.  The patchLevel argument is the specific<br>
+patch level being submitted.  The language argument must be an empty<br>
+string, &quot;Tcl&quot;, or &quot;Eagle&quot;.  If it is an empty string, the current<br>
+language will be assumed.  The script argument is the script to be<br>
+evaluated when the package needs to be provided.  The certificate<br>
+argument is the certificate associated with the script, which may be<br>
+an OpenPGP signature or a Harpy script certificate.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=654">::PackageUploader::getCheckoutId</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to query the identifier of the Fossil<br>
+checkout.  There are no arguments.  An empty string is returned if<br>
+the information cannot be determined.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=697">::PackageUploader::getCheckoutDirectory</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to query the root directory of the Fossil<br>
+checkout.  There are no arguments.  An empty string is returned if<br>
+the information cannot be determined.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=739">::PackageUploader::joinPath</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument list &quot;args&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure builds a native path using the specified parts and<br>
+returns it.  All arguments are considered to be parts of the path.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=749">::PackageUploader::verifyCheckoutDirectory</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to verify that the root directory of the<br>
+Fossil checkout is present, valid, and is actually a directory.<br>
+There are no arguments.  Script errors will be raised if any of<br>
+the checks fail.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=812">::PackageUploader::fossilMustBeInstalled</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to verify that an implementation of Fossil<br>
+is installed locally.  There are no arguments.  Script errors are<br>
+raised if any problems are found.  The return value is undefined.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=858">::PackageUploader::verifyThereAreNoChanges</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to verify that the checkout directory does<br>
+not contain any (stray) changes.  There are no arguments.  Non-zero<br>
+is returned if the verification is successful.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=902">::PackageUploader::verifyThisIsTheCorrectProject</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to verify that the checkout directory does<br>
+belong to the correct project.  There are no arguments.  Non-zero<br>
+is returned if the verification is successful.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=946">::PackageUploader::verifyThisIsTheCorrectBranch</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to verify that the checkout directory does<br>
+belong to the correct branch.  There are no arguments.  Non-zero<br>
+is returned if the verification is successful.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=989">::PackageUploader::changeToTheCorrectBranch</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to change the branch for the checkout<br>
+directory.  There are no arguments.  This procedure may raise<br>
+script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=1026">::PackageUploader::stageOnePackageFile</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;targetDirectory&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to stage the specified package file using<br>
+Fossil.  The targetDirectory argument is the fully qualified path<br>
+to the package platform directory.  The fileName argument is the<br>
+relative name of the file to be staged.  This procedure may raise<br>
+script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=1061">::PackageUploader::stagePackageFiles</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;language&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;version&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;platform&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;fileNames&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to stage the specified package files using<br>
+Fossil.  The fileNames argument is a list of (fully?) qualified<br>
+local file names to stage.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=1147">::PackageUploader::commitPackageFiles</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;package&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;patchLevel&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;language&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;version&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;varName&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure attempts to commit the staged package files to the<br>
+remote package file repository using Fossil.  The varName argument<br>
+is the name of a scalar variable in the context of the immediate<br>
+caller that will receive the resulting Fossil check-in identifier.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=1373">::PackageUploader::textBoxEventHandler</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;varName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;sender&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;e&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure is an event handler.  It handles the Changed event<br>
+for a text box.  It is not used when the user interface was built<br>
+with Tk.  The varName argument is the name of the scalar variable<br>
+that must be updated with the contents of the text box.  The sender<br>
+and e arguments are provided by the framework and represent the<br>
+control involved in the event and any extra data that may be<br>
+necessary to process the event.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=1387">::PackageUploader::listBoxEventHandler</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Required argument &quot;varName&quot;</span></big><br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument list &quot;args&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure is an event handler.  It handles double-clicking the<br>
+list box in both Tk and Eagle.  The varName argument is the name of<br>
+the scalar variable that must be updated with the list of items from<br>
+the list box -OR- the list of items from an interactive file picker<br>
+dialog.  The args argument, which is only used for Eagle, is a list<br>
+containing two elements.  The first element is the control involved<br>
+in the event.  The second element is any extra data that may be<br>
+necessary to process the event.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=1418">::PackageUploader::handleFormClosedEvent</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument list &quot;args&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure is an event handler.  It handles the Closed event for<br>
+a WinForms form -OR- the WM_DELETE_WINDOW event on a Tk window.  The<br>
+args argument is not really used, it is a placeholder to make this<br>
+procedure more portable between Tcl and Eagle.  This procedure may<br>
+raise script errors.<br>
+</blockquote><br><hr><br>
+
+<big><big><span style="font-family: monospace;">Private Procedure &quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle&amp;ln=1541">::PackageUploader::clearEventHandler</a>&quot;&nbsp;(from&nbsp;&quot;<a href="$ROOT/artifact?ci=trunk&amp;filename=client/1.0/neutral/pkgu.eagle">pkgu.eagle</a>&quot;)</span></big></big><br>
+<br>
+
+<big><span style="font-family: monospace;">&nbsp;&nbsp;&nbsp;&nbsp;Optional argument list &quot;args&quot;</span></big><br>
+
+<blockquote style="font-family: monospace;"><br>
+This procedure is an event handler.  It handles the clear button in<br>
+Tk and Eagle.  It is used to clear the package submission data.  The<br>
+args argument is not really used, it is a placeholder to make this<br>
+procedure more portable between Tcl and Eagle.  This procedure may<br>
+raise script errors.<br>
+</blockquote><br><hr><br>
+</div>

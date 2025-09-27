@@ -1,0 +1,54 @@
+###############################################################################
+#
+# pkgr.settings.debug.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Package Repository Client Debug Settings
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# TODO: Set this to your list of read-only API keys.
+#
+# set ::pkgr_api_keys [list 0000000000000000000000000000000000000000]
+
+#
+# NOTE: These settings apply to the "common.tcl" script.
+#
+namespace eval ::Eagle::Tools::Common {
+  #
+  # NOTE: This setting enables diagnostic output from the native Tcl
+  #       URI downloader.
+  #
+  variable verboseGetUrl true; # DEFAULT: false
+}
+
+#
+# NOTE: These settings apply to the "pkgr.eagle" script (directly)
+#       and the "pkgu.eagle" script (indirectly).
+#
+namespace eval ::PackageRepository {
+  #
+  # TODO: When this setting is non-zero, only packages matching the
+  #       current language will be handled via its custom [package
+  #       unknown] handler.  This is almost always what is actually
+  #       wanted, hence non-zero is the default value.  This setting
+  #       can be set to zero in order to help with testing.
+  #
+  # variable strictUnknownLanguage false; # DEFAULT: true
+
+  #
+  # NOTE: These settings enables detailed diagnostic output from the
+  #       [package unknown] handler -AND- the URI downloader used by
+  #       native Tcl.
+  #
+  variable verboseUnknownResult true; # DEFAULT: false
+  variable verboseUriDownload true; # DEFAULT: false
+}

@@ -1,0 +1,206 @@
+###############################################################################
+#
+# pkgr_install.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Package Repository Client (Package Installer)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::PackageInstaller {
+  #
+  # NOTE: This procedure is used to report errors that prevent this tool
+  #       from running to completion (e.g. invalid command line arguments,
+  #       etc).  It may be used to report a specific error.  It will always
+  #       emit the command line usage information.
+  #
+  proc usage { {error ""} } {
+    if {[string length $error] > 0} then {puts stdout $error}
+
+    puts stdout "usage:\
+  [file tail [info nameofexecutable]]\
+  [file tail [info script]] <apiKey> <name> \[version\] \[language\]"
+
+    exit 1
+  }
+
+  #
+  # NOTE: Figure out the fully qualified path to the current script file.
+  #       If necessary, add it to the auto-path for the interpreter.  The
+  #       necessary supporting packages (i.e. the Package Repository and
+  #       other support packages) that are assumed to exist in the same
+  #       directory as the current script file.
+  #
+  variable pkgr_path; # DEFAULT: <unset>
+
+  if {![info exists pkgr_path]} then {
+    set pkgr_path [file normalize [file dirname [info script]]]
+
+    if {![info exists ::auto_path] || \
+        [lsearch -exact $::auto_path $pkgr_path] == -1} then {
+      lappend ::auto_path $pkgr_path
+    }
+  }
+
+  #
+  # NOTE: *TODO* Pre-create the namespace for the Package Repository Client
+  #       package and then forcibly adjust various settings to the values
+  #       necessary for this tool.  In the future, this section may need to
+  #       be tweaked to account for changes to the Package Repository Client
+  #       package.
+  #
+  namespace eval ::PackageRepository {
+    variable autoHook true
+    variable autoLoadTcl false
+    variable autoRequireGaruda false
+    variable verboseUnknownResult true
+    variable verboseUriDownload true
+  }
+
+  #
+  # NOTE: *TODO* Pre-create the namespace for the Package Downloader Client
+  #       package and then forcibly adjust various settings to the values
+  #       necessary for this tool.  In the future, this section may need to
+  #       be tweaked to account for changes to the Package Downloader Client
+  #       package.  Technically, the package being handled by this tool may
+  #       not actually use the downloader; however, if it does, this should
+  #       make sure the downloaded package files are persisted locally.
+  #
+  namespace eval ::PackageDownloader {
+    variable quiet false
+    variable viaInstall true
+  }
+
+  #
+  # NOTE: Load the Package Repository Client package now.  This will install
+  #       the [package unknown] hook and prepare it for use.
+  #
+  package require Eagle.Package.Repository
+
+  #
+  # NOTE: Verify that the number of command line arguments meets the basic
+  #       requirements of this tool.
+  #
+  if {[info exists ::argv] && \
+      [llength $::argv] >= 2 && [llength $::argv] <= 4} then {
+    #
+    # NOTE: Get the API key.  This is always required.  If this API key is
+    #       not valid or cannot be found by the server, execution of this
+    #       tool will fail.
+    #
+    set apiKey [lindex $::argv 0]
+
+    #
+    # NOTE: Get the package name.  This is always required.  If this package
+    #       name is invalid or cannot be found by the server, execution of
+    #       this tool will fail.
+    #
+    set package [lindex $::argv 1]
+
+    #
+    # NOTE: Grab the package version (or requirement?).  This is optional.
+    #       If this package version is specified, it must conform with TIP
+    #       #268 when the target language is native Tcl.  For Eagle, only
+    #       the dotted decimal version syntax, with between 2 to 4 numbers,
+    #       is supported.
+    #
+    if {[llength $::argv] >= 3} then {
+      set version [lindex $::argv 2]
+
+      if {[isEagle] && ![string is version -strict $version]} then {
+        set pattern {^\d+\.\d+(?:\.\d+){0,2}$}
+
+        error [appendArgs \
+            "version must match regular expression: " $pattern]
+      }
+    } else {
+      set version ""
+    }
+
+    #
+    # NOTE: Grab the target language.  This is optional.  Without this, it
+    #       is assumed that the target language is the one evaluating the
+    #       current script file.  The only supported target languages are
+    #       native Tcl ("Tcl") and Eagle ("Eagle"), both case-sensitive.
+    #       If the target language differs from the current language, this
+    #       tool will attempt to gain access to the target language and a
+    #       script error will be raised if that attempt fails.
+    #
+    if {[llength $::argv] >= 4} then {
+      set language [lindex $::argv 3]
+    } else {
+      set language ""
+    }
+
+    #
+    # NOTE: If the target language was specified, attempt to gain access to
+    #       it, if necessary.  If the current language matches the target
+    #       language, nothing is done.
+    #
+    if {[string length $language] > 0} then {
+      switch -exact -- $language {
+        Eagle {
+          if {![isEagle]} then {
+            ::PackageRepository::makeEagleReady
+          }
+        }
+        Tcl {
+          if {[isEagle]} then {
+            ::PackageRepository::makeTclReady
+          }
+        }
+        default {
+          error "unsupported language: must be Tcl or Eagle"
+        }
+      }
+    }
+
+    #
+    # NOTE: If a non-empty API key was specified on the command line then
+    #       add it to the global list now.
+    #
+    if {[string length $apiKey] > 0} then {
+      lappend ::pkgr_api_keys $apiKey
+    }
+
+    #
+    # NOTE: For Eagle, make sure that the [package unknown] handler will be
+    #       used for the current interpreter.
+    #
+    if {[isEagle]} then {
+      object invoke -flags +NonPublic Interpreter.GetActive InterpreterFlags \
+          [appendArgs [object invoke -flags +NonPublic Interpreter.GetActive \
+          InterpreterFlags] " -NoPackageUnknown"]
+    }
+
+    #
+    # NOTE: Attempt to require the target package now.  If this succeeds
+    #       -AND- the Package Downloader Client was used, the package will
+    #       be persisted locally; otherwise, the [package ifneeded] script
+    #       may still be evaluated; however, the effects may not actually
+    #       cause anything to persist.
+    #
+    if {[string length $version] > 0} then {
+      set result [package require $package $version]
+    } else {
+      set result [package require $package]
+    }
+
+    puts stdout [appendArgs "package require result: " $result]
+  } else {
+    usage
+  }
+}
+

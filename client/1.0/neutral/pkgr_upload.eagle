@@ -1,0 +1,133 @@
+###############################################################################
+#
+# pkgr_upload.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Package Repository Client (Upload Tool)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::PackageUploader {
+  #
+  # NOTE: This procedure is used to report errors that prevent this tool
+  #       from running to completion (e.g. invalid command line arguments,
+  #       etc).  It may be used to report a specific error.  It will always
+  #       emit the command line usage information.
+  #
+  proc usage { {error ""} } {
+    if {[string length $error] > 0} then {puts stdout $error}
+
+    puts stdout "usage:\
+  [file tail [info nameofexecutable]]\
+  [file tail [info script]] \[serverId\] \[apiKey\] \[package\] \[patchLevel\]\
+  \[language\] \[version\] \[platform\] \[fileName1\] ... \[fileNameN\]"
+
+    exit 1
+  }
+
+  #
+  # NOTE: Figure out the fully qualified path to the current script file.
+  #       If necessary, add it to the auto-path for the interpreter.  The
+  #       necessary supporting packages (i.e. the Package Repository and
+  #       other support packages) that are assumed to exist in the same
+  #       directory as the current script file.
+  #
+  namespace eval ::PackageUploader {
+    variable pkgr_path; # DEFAULT: <unset>
+
+    if {![info exists pkgr_path]} then {
+      set pkgr_path [file normalize [file dirname [info script]]]
+
+      if {![info exists ::auto_path] || \
+          [lsearch -exact $::auto_path $pkgr_path] == -1} then {
+        lappend ::auto_path $pkgr_path
+      }
+    }
+  }
+
+  #
+  # NOTE: *TODO* Pre-create the namespace for the Package Repository Client
+  #       package and then forcibly adjust various settings to the values
+  #       necessary for this tool.  In the future, this section may need to
+  #       be tweaked to account for changes to the Package Repository Client
+  #       package.
+  #
+  namespace eval ::PackageRepository {
+    variable verboseUriDownload true
+    variable autoRequireGaruda false
+    variable autoLoadTcl false
+    variable autoHook false
+  }
+
+  #
+  # NOTE: This package requires both the package uploader client package.
+  #
+  package require Eagle.Package.Uploader
+
+  #
+  # NOTE: Make sure this tool is being run from within the package client
+  #       checkout directory.
+  #
+  ::PackageUploader::verifyCheckoutDirectory
+
+  #
+  # NOTE: Process the command line arguments into their corresponding data
+  #       values, which are contained in an array.
+  #
+  ::PackageUploader::setupArgumentData \
+      [expr {[info exists ::argv] ? $::argv : [list]}]
+
+  #
+  # NOTE: Verify that the number of command line arguments meets the basic
+  #       requirements of this tool.
+  #
+  if {[::PackageUploader::haveArgumentData]} then {
+    #
+    # NOTE: All necessary arguments were supplied on the command line, use
+    #       batch mode.
+    #
+    if {[isEagle]} then {
+      ::PackageUploader::submitEventHandler true null null
+    } else {
+      ::PackageUploader::submitEventHandler true
+    }
+  } else {
+    #
+    # NOTE: One or more of the necessary arguments were not supplied on the
+    #       command line, use interactive mode.  This will create a graphical
+    #       user interface, using Tk or WinForms.  If any of the necessary
+    #       arguments were supplied on the command line, they will be used to
+    #       populate those fields on the graphical user interface.
+    #
+    variable guiError
+
+    if {[isEagle]} then {
+      if {[catch {
+        ::PackageUploader::setupWinFormsUserInterface
+      } guiError]} then {
+        usage $guiError
+      }
+    } else {
+      if {[catch {
+        ::PackageUploader::setupTkUserInterface
+      } guiError]} then {
+        usage $guiError
+      }
+    }
+
+    vwait ::PackageUploader::forever
+  }
+}
+

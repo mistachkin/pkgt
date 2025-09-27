@@ -1,0 +1,117 @@
+###############################################################################
+#
+# pkgr_setup.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Package Repository Client (Setup Tool)
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::PackageSetup {
+  #
+  # NOTE: This procedure is used to report errors that prevent this tool
+  #       from running to completion (e.g. invalid command line arguments,
+  #       etc).  It may be used to report a specific error.  It will always
+  #       emit the command line usage information.
+  #
+  proc usage { {error ""} } {
+    if {[string length $error] > 0} then {puts stdout $error}
+
+    puts stdout "usage:\
+  [file tail [info nameofexecutable]]\
+  [file tail [info script]]"
+
+    exit 1
+  }
+
+  #
+  # NOTE: Figure out the fully qualified path to the current script file.
+  #       If necessary, add it to the auto-path for the interpreter.  The
+  #       necessary supporting packages (i.e. the Package Repository and
+  #       other support packages) that are assumed to exist in the same
+  #       directory as the current script file.
+  #
+  variable pkgr_path; # DEFAULT: <unset>
+
+  if {![info exists pkgr_path]} then {
+    set pkgr_path [file normalize [file dirname [info script]]]
+
+    if {![info exists ::auto_path] || \
+        [lsearch -exact $::auto_path $pkgr_path] == -1} then {
+      lappend ::auto_path $pkgr_path
+    }
+  }
+
+  #
+  # NOTE: *TODO* Pre-create the namespace for the Package Repository Client
+  #       package and then forcibly adjust various settings to the values
+  #       necessary for this tool.  In the future, this section may need to
+  #       be tweaked to account for changes to the Package Repository Client
+  #       package.
+  #
+  namespace eval ::PackageRepository {
+    variable autoHook false
+    variable verboseUriDownload true
+  }
+
+  #
+  # NOTE: *TODO* Pre-create the namespace for the Package Downloader Client
+  #       package and then forcibly adjust various settings to the values
+  #       necessary for this tool.  In the future, this section may need to
+  #       be tweaked to account for changes to the Package Downloader Client
+  #       package.
+  #
+  namespace eval ::PackageDownloader {
+    variable quiet false
+  }
+
+  #
+  # NOTE: Load the necessary packages now.
+  #
+  package require Eagle.Package.Repository
+  package require Eagle.Package.Downloader
+
+  #
+  # NOTE: Verify that the number of command line arguments meets the basic
+  #       requirements of this tool.
+  #
+  if {![info exists ::argv] || [llength $::argv] == 0} then {
+    set localFileName [file join \
+        [::PackageRepository::getFileTempDirectory PKGR_SETUP_TEMP] \
+        [appendArgs pkg_keys_ [::PackageRepository::getUniqueSuffix] .asc]]
+
+    ::PackageDownloader::downloadAndSaveOpenPgpKeyFile \
+        $localFileName
+
+    ::PackageRepository::probeForOpenPgpInstallation
+    ::PackageRepository::openPgpMustBeInstalled
+
+    set imported [::PackageRepository::importOpenPgpKeyFile \
+        $localFileName result]
+
+    catch {file delete $localFileName}
+
+    if {$imported} then {
+      puts stdout $result
+    } else {
+      error [appendArgs \
+          "could not import the package signing OpenPGP key(s): " \
+          $result]
+    }
+  } else {
+    usage
+  }
+}
+

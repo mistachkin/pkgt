@@ -1,0 +1,1956 @@
+###############################################################################
+#
+# pkgu.eagle --
+#
+# Extensible Adaptable Generalized Logic Engine (Eagle)
+# Package Uploader Client
+#
+# Copyright (c) 2007-2012 by Joe Mistachkin.  All rights reserved.
+#
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# RCS: @(#) $Id: $
+#
+###############################################################################
+
+#
+# NOTE: Use our own namespace here because even though we do not directly
+#       support namespaces ourselves, we do not want to pollute the global
+#       namespace if this script actually ends up being evaluated in Tcl.
+#
+namespace eval ::PackageUploader {
+  #
+  # NOTE: This procedure sets up the default values for all configuration
+  #       parameters used by the package uploader client.  If the force
+  #       argument is non-zero, any existing values will be overwritten
+  #       and set back to their default values.
+  #
+  proc setupUploadVars { force } {
+    #
+    # NOTE: This variable must exist and must be the fully qualified path
+    #       of the directory containing this script.
+    #
+    variable pkgr_path
+
+    if {![info exists pkgr_path]} then {
+      error [appendArgs \
+          "required namespace variable \"" [namespace current] \
+          "::pkgr_path\" does not exist"]
+    }
+
+    #
+    # NOTE: The project code for the Fossil repository.  This will be checked
+    #       prior to staging or committing any files.
+    #
+    variable projectCode; # DEFAULT: 9ceada8dbb8678898e5b2c05386e73b3ff2c2dec
+
+    if {$force || ![info exists projectCode]} then {
+      set projectCode 9ceada8dbb8678898e5b2c05386e73b3ff2c2dec
+    }
+
+    #
+    # NOTE: What is the fully qualified path to the directory containing
+    #       package client toolset?
+    #
+    variable scriptDirectory; # DEFAULT: <scriptDir>
+
+    if {$force || ![info exists scriptDirectory]} then {
+      set scriptDirectory $pkgr_path
+    }
+
+    #
+    # NOTE: This is the name of the executable file used to invoke Fossil,
+    #       possibly without a file extension.
+    #
+    variable fossilFileNameOnly; # DEFAULT: <unset>
+
+    if {$force || ![info exists fossilFileNameOnly]} then {
+      if {[isWindows]} then {
+        set fossilFileNameOnly fossil.exe
+      } else {
+        set fossilFileNameOnly fossil
+      }
+    }
+
+    #
+    # NOTE: The command to use when attempting to verify that Fossil is
+    #       available for use.
+    #
+    variable fossilVersionCommand; # DEFAULT: fossil version
+
+    if {$force || ![info exists fossilVersionCommand]} then {
+      set fossilVersionCommand {{${fossilFileNameOnly}} version}
+    }
+
+    #
+    # NOTE: The regular expression pattern used when attempting to verify
+    #       that Fossil is installed.
+    #
+    variable fossilVersionPattern; # DEFAULT: {^This is fossil version [12]... }
+
+    if {$force || ![info exists fossilVersionPattern]} then {
+      set fossilVersionPattern {^This is fossil version [12]\.\d+ }
+    }
+
+    #
+    # NOTE: The command to use when attempting to check for changes prior to
+    #       staging files using Fossil.
+    #
+    variable fossilChangesCommand; # DEFAULT: fossil changes ...
+
+    if {$force || ![info exists fossilChangesCommand]} then {
+      set fossilChangesCommand \
+          {{${fossilFileNameOnly}} changes --chdir {${directory}}}
+    }
+
+    #
+    # NOTE: The regular expression pattern used when attempting to verify
+    #       that the Fossil checkout has no changes staged.  Generally, this
+    #       pattern should only match an empty string.
+    #
+    variable fossilChangesPattern; # DEFAULT: {^$}
+
+    if {$force || ![info exists fossilChangesPattern]} then {
+      set fossilChangesPattern {^$}
+    }
+
+    #
+    # NOTE: The command to use when attempting to check the checkout status
+    #       prior to staging files using Fossil.
+    #
+    variable fossilInfoCommand; # DEFAULT: fossil info ...
+
+    if {$force || ![info exists fossilInfoCommand]} then {
+      set fossilInfoCommand \
+          {{${fossilFileNameOnly}} info --chdir {${directory}}}
+    }
+
+    #
+    # NOTE: The regular expression pattern used when attempting to extract
+    #       the current check-in identifier for the Fossil checkout.
+    #
+    variable fossilInfoCheckoutPattern; # DEFAULT: {^checkout:\s+... UTC$}
+
+    if {$force || ![info exists fossilInfoCheckoutPattern]} then {
+      set fossilInfoCheckoutPattern \
+          {^checkout:\s+([0-9a-f]{40}) \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC$}
+    }
+
+    #
+    # NOTE: The regular expression pattern used when attempting to extract
+    #       the root directory for the Fossil checkout.
+    #
+    variable fossilInfoLocalRootPattern; # DEFAULT: {^local-root:\s+(.*?)$}
+
+    if {$force || ![info exists fossilInfoLocalRootPattern]} then {
+      set fossilInfoLocalRootPattern {^local-root:\s+(.*?)$}
+    }
+
+    #
+    # NOTE: The regular expression pattern used when attempting to verify
+    #       that the Fossil checkout belongs to the correct project.
+    #
+    variable fossilInfoProjectCodePattern; # DEFAULT: {^project-code:\\s+...\$}
+
+    if {$force || ![info exists fossilInfoProjectCodePattern]} then {
+      set fossilInfoProjectCodePattern [appendArgs \
+          {^project-code:\\s+${projectCode}\$}]
+    }
+
+    #
+    # NOTE: The regular expression pattern used when attempting to verify
+    #       that the Fossil checkout is sitting on the correct branch.
+    #
+    variable fossilInfoTagsPattern; # DEFAULT: {^tags:\s+trunk(?:,|$)}
+
+    if {$force || ![info exists fossilInfoTagsPattern]} then {
+      set fossilInfoTagsPattern {^tags:\s+trunk(?:,|$)}
+    }
+
+    #
+    # NOTE: The command to use when attempting to reset the checkout to the
+    #       default branch prior to staging files using Fossil.
+    #
+    variable fossilUpdateCommand; # DEFAULT: fossil update trunk ...
+
+    if {$force || ![info exists fossilUpdateCommand]} then {
+      set fossilUpdateCommand \
+          {{${fossilFileNameOnly}} update trunk --chdir {${directory}}}
+    }
+
+    #
+    # NOTE: The command to use when attempting to stage package files using
+    #       Fossil.
+    #
+    variable fossilAddCommand; # DEFAULT: fossil add ...
+
+    if {$force || ![info exists fossilAddCommand]} then {
+      set fossilAddCommand \
+          {{${fossilFileNameOnly}} add --chdir {${directory}} {${fileName}}}
+    }
+
+    #
+    # NOTE: The command to use when attempting to commit package files using
+    #       Fossil.
+    #
+    variable fossilCommitCommand; # DEFAULT: fossil commit ...
+
+    if {$force || ![info exists fossilCommitCommand]} then {
+      set fossilCommitCommand \
+          {{${fossilFileNameOnly}} commit -m {${comment}}\
+          --branch {${branch}} --user anonymous --chdir\
+          {${directory}} --no-prompt}
+    }
+
+    #
+    # NOTE: The regular expression pattern used when attempting to verify
+    #       that Fossil committed a set of files.
+    #
+    variable fossilCommitPattern; # DEFAULT: {^New_Version: ([0-9a-f]{40,64})$}
+
+    if {$force || ![info exists fossilCommitPattern]} then {
+      set fossilCommitPattern {^New_Version: ([0-9a-f]{40,64})$}
+    }
+
+    #
+    # NOTE: Emit diagnostic messages when a new package is submitted?
+    #
+    variable verboseMetadataSubmit; # DEFAULT: false
+
+    if {$force || ![info exists verboseMetadataSubmit]} then {
+      set verboseMetadataSubmit false
+    }
+  }
+
+  #
+  # NOTE: This procedure sets up the default values for all configuration
+  #       parameters used by the package uploader client that require the
+  #       location of the checkout directory.  If the force argument is
+  #       non-zero, any existing values will be overwritten and set back
+  #       to their default values.
+  #
+  proc setupCheckoutVars { force } {
+    #
+    # NOTE: What is the fully qualified path to the root directory of the
+    #       Fossil checkout containing the package client toolset?  This
+    #       procedure may raise script errors.
+    #
+    variable checkoutDirectory; # DEFAULT: <checkoutDir>
+
+    if {$force || ![info exists checkoutDirectory]} then {
+      set checkoutDirectory [getCheckoutDirectory]
+    }
+  }
+
+  #
+  # NOTE: This procedure returns a string value, formatted for use within a
+  #       script block being processed by the [string map] command.  The
+  #       value argument is the string value to format.  No return value is
+  #       reserved to indicate an error.  This procedure may not raise any
+  #       script errors.
+  #
+  proc formatStringMapValue { value } {
+    if {[string length $value] == 0} then {
+      return \"\"
+    }
+
+    set list [list $value]
+
+    if {$value eq $list} then {
+      return $value
+    } else {
+      return $list
+    }
+  }
+
+  #
+  # NOTE: This procedure counts the common path components for two paths.  The
+  #       count is returned, zero if there are no common path components.  The
+  #       path1 and path2 arguments are the paths to compare.  This procedure
+  #       may not raise script errors.
+  #
+  proc countCommonPathParts { path1 path2 } {
+    set parts1 [file split $path1]
+    set length1 [llength $parts1]
+
+    set parts2 [file split $path2]
+    set length2 [llength $parts2]
+
+    set length [expr {min($length1, $length2)}]
+
+    for {set index 0} {$index < $length} {incr index} {
+      set part1 [lindex $parts1 $index]
+      set part2 [lindex $parts2 $index]
+
+      if {$part1 ne $part2} then {
+        return $index
+      }
+    }
+
+    return $length
+  }
+
+  #
+  # NOTE: This procedure processes a list of (fully?) qualified file names and
+  #       tries to determine their common containing directory, if any.  The
+  #       fileNames argument is the list of (fully?) qualified file names to
+  #       process.  This procedure may not raise script errors.  If there is
+  #       no common containing directory, an empty string is returned.
+  #
+  proc getCommonContainingDirectory { fileNames } {
+    set length [llength $fileNames]
+
+    if {$length == 0} then {
+      return ""
+    }
+
+    set oldFileName [lindex $fileNames 0]
+
+    if {$length == 1} then {
+      return [file dirname $oldFileName]
+    }
+
+    set minimumCount 0
+
+    for {set index 1} {$index < $length} {incr index} {
+      set newFileName [lindex $fileNames $index]
+      set newCount [countCommonPathParts $oldFileName $newFileName]
+
+      if {$newCount == 0} then {
+        return ""
+      }
+
+      if {$minimumCount == 0 || $newCount < $minimumCount} then {
+        set oldFileName $newFileName
+        set minimumCount $newCount
+      }
+    }
+
+    if {$minimumCount == 0} then {
+      return ""
+    }
+
+    incr minimumCount -1
+
+    return [eval file join [lrange [file split $oldFileName] 0 $minimumCount]]
+  }
+
+  #
+  # NOTE: This procedure attempts to process a list of (fully?) qualified file
+  #       names and return the corresponding list of relative file names.  The
+  #       fileNames argument is the list of (fully?) qualified file names to
+  #       process.  The maximumLevels argument is the maximum path depth that
+  #       is allowed for all file names.  This procedure may raise script
+  #       errors.
+  #
+  proc getRelativeFileNames { fileNames maximumLevels } {
+    set directory [getCommonContainingDirectory $fileNames]
+    set directoryParts [file split $directory]
+    set fileNameIndex [expr {[llength $directoryParts] - 1}]
+
+    if {$fileNameIndex < 0} then {
+      error [appendArgs \
+          "invalid containing directory \"" $directory \
+          "\": cannot go up one level"]
+    }
+
+    set relativeFileNames [list]
+
+    foreach fileName $fileNames {
+      set fileNameParts [lrange \
+          [file split $fileName] $fileNameIndex end]
+
+      if {$maximumLevels > 0 && \
+          [llength $fileNameParts] > $maximumLevels} then {
+        error [appendArgs \
+            "depth for file name \"" $fileName \
+            "\" exceeds maximum (" $maximumLevels )]
+      }
+
+      set relativeFileName [eval file join $fileNameParts]
+
+      if {[string length $relativeFileName] == 0 || \
+          [file pathtype $relativeFileName] ne "relative"} then {
+        error [appendArgs \
+            "bad file name \"" $relativeFileName "\", not relative"]
+      }
+
+      lappend relativeFileNames $relativeFileName
+    }
+
+    return $relativeFileNames
+  }
+
+  #
+  # NOTE: This procedure attempts to create a script chunk that appends the
+  #       specified list of file names to a list variable.  The fileNames
+  #       argument is the list of (fully?) qualified file names to append to
+  #       the list variable.  The maximumLevels argument is the maximum path
+  #       depth that is allowed for all file names.  This procedure may raise
+  #       script errors.
+  #
+  proc getScriptChunkForFileNames { fileNames maximumLevels } {
+    set result ""
+    set relativeFileNames [getRelativeFileNames $fileNames $maximumLevels]
+
+    foreach relativeFileName $relativeFileNames {
+      if {[string length $result] > 0} then {
+        append result \n
+      }
+
+      append result {  lappend fileNames [file join }
+      append result [file split $relativeFileName]
+      append result \]
+    }
+
+    return $result
+  }
+
+  #
+  # NOTE: This procedure creates and returns a script block designed for use
+  #       with the package repository server in order to download and provide
+  #       a package consisting of a set of files.  The serverId argument is
+  #       the identifier for the specific server to use, if any.  The
+  #       versionId argument is the identifier for the specific version to use,
+  #       if any.  The language argument must be the literal string "eagle" or
+  #       the literal string "tcl".  The version argument must be one of the
+  #       literal strings "8.4", "8.5", "8.6", or "8.7" when the language is
+  #       "tcl" -OR- the literal string "1.0" when the language is "eagle".
+  #       The platform argument must be an empty string -OR- one of the literal
+  #       strings "neutral", "win32-arm", "win32-x86", "win64-arm64",
+  #       "win64-ia64", or "win64-x64".  The fileNames argument is the list of
+  #       (fully?) qualified file names to be downloaded when the associated
+  #       package is being provided.  The options argument is reserved for
+  #       future use, it should be an empty list.
+  #
+  proc createRepositoryScript {
+          serverId versionId language version platform fileNames options } {
+    ::PackageRepository::verifyServerId $serverId
+    ::PackageDownloader::verifyVersionId $versionId
+    ::PackageDownloader::verifyLanguageAndVersion $language $version isClient
+
+    if {$isClient} then {
+      error "cannot create repository script for client"
+    }
+
+    #
+    # HACK: Automatic detection of the platform must be disabled here, since
+    #       the generated repository script may want it performed late-bound,
+    #       i.e. within the generated script block itself.
+    #
+    if {[string length $platform] > 0} then {
+      ::PackageDownloader::verifyPlatform $platform platform
+    }
+
+    set prologue ""
+
+    if {[string length $serverId] > 0} then {
+      append prologue "  ::PackageDownloader::useServerId " $serverId \n
+    }
+
+    if {[string length $versionId] > 0} then {
+      append prologue "  ::PackageDownloader::useVersionId " $versionId \n
+    }
+
+    append prologue "  "
+
+    return [string trim [string map [list \r\n \n \
+        %language% [formatStringMapValue $language] \
+        %version% [formatStringMapValue $version] \
+        %platform% [formatStringMapValue $platform] \
+        %prologue% $prologue %ns% ::PackageDownloader \
+        %backslash% \\  %fileNames% \
+        [getScriptChunkForFileNames $fileNames 2]] {
+apply [list [list] {
+  set fileNames [list]
+
+%fileNames%
+
+  set options [list %backslash%
+      -persistent false -usePgp true -useAutoPath true]
+
+  package require Eagle.Package.Downloader
+
+%prologue%%ns%::resetCookieAndLoginSimple
+  %ns%::downloadFiles %language% %version% %platform% $fileNames $options
+  %ns%::logoutAndResetCookie
+}]
+    }]]
+  }
+
+  #
+  # NOTE: This procedure creates textual data that conforms to the content
+  #       type "multipart/form-data", per RFC 2388.  The boundary argument
+  #       is a boundary value, as specified in section 4.1 of the RFC.  The
+  #       request argument is the dictionary of name/value pairs to include
+  #       in the form body.  This procedure may not raise script errors.
+  #
+  proc createMultipartFormData { boundary request } {
+    set result ""
+
+    foreach {name value} $request {
+      append result -- $boundary \r\n
+      append result "Content-Disposition: form-data; name=\""
+      append result $name \"\r\n\r\n
+      append result $value \r\n
+    }
+
+    if {[string length $result] > 0} then {
+      append result -- $boundary --\r\n
+    }
+
+    if {[isEagle]} then {
+      return [object create -alias String $result]
+    } else {
+      return $result
+    }
+  }
+
+  #
+  # NOTE: This procedure returns the full URI to use when submitting a new
+  #       package to the package repository server.  There are no arguments.
+  #       This procedure may raise script errors.
+  #
+  proc getSubmitUri {} {
+    #
+    # NOTE: Fetch the base URI for the package repository server.  If it
+    #       is not available for some reason, just return an empty string
+    #       to the caller (i.e. as we cannot do anything productive).
+    #
+    set baseUri [::PackageRepository::getSubmitBaseUri]
+
+    if {[string length $baseUri] == 0} then {
+      return ""
+    }
+
+    #
+    # NOTE: Build the HTTP request URI and include the standard query
+    #       parameters (with constant values) for this request type.
+    #
+    if {[isEagle]} then {
+      return [appendArgs \
+          $baseUri ?raw=1&method=submit]
+    } else {
+      package require http 2.0
+
+      return [appendArgs \
+          $baseUri ? [::http::formatQuery raw 1 method submit]]
+    }
+  }
+
+  #
+  # NOTE: This procedure attempts to submit the metadata for a new package to
+  #       the package repository server.  Upon success, an empty string will
+  #       be returned.  Upon failure, a script error will be raised.  The
+  #       apiKey argument is the list of API keys to use.  The package argument
+  #       is the name of the package.  The patchLevel argument is the specific
+  #       patch level being submitted.  The language argument must be an empty
+  #       string, "Tcl", or "Eagle".  If it is an empty string, the current
+  #       language will be assumed.  The script argument is the script to be
+  #       evaluated when the package needs to be provided.  The certificate
+  #       argument is the certificate associated with the script, which may be
+  #       an OpenPGP signature or a Harpy script certificate.
+  #
+  proc submitPackageMetadata {
+          apiKey package patchLevel language script certificate } {
+    variable verboseMetadataSubmit
+
+    ::PackageDownloader::verifyPackageName $package
+    ::PackageDownloader::verifyPackagePatchLevel $patchLevel
+
+    #
+    # NOTE: Fetch the submission URI for the package repository server.  If
+    #       it is not available for some reason, raise a script error.
+    #
+    set uri [getSubmitUri]
+
+    if {[string length $uri] == 0} then {
+      error ""
+    }
+
+    if {[string length $language] == 0} then {
+      set language [expr {[isEagle] ? "Eagle" : "Tcl"}]
+    }
+
+    ::PackageRepository::verifyMetadataLanguage $language
+
+    if {[isEagle]} then {
+      set boundary [string map \
+          [list + "" / "" = ""] [base64 encode [expr {randstr(50)}]]]
+    } else {
+      set boundary [::PackageRepository::getUniqueSuffix]
+    }
+
+    set contentType [appendArgs \
+        "multipart/form-data; boundary=" $boundary]
+
+    set formData [createMultipartFormData $boundary \
+        [list apiKey $apiKey package $package patchLevel \
+        $patchLevel language $language script $script \
+        certificate $certificate]]
+
+    if {[isEagle]} then {
+      if {![info exists ::eagle_platform(compileOptions)]} then {
+        error "missing compile options from Eagle platform array"
+      }
+
+      if {[lsearch -exact -- \
+          $::eagle_platform(compileOptions) TEST] == -1} then {
+        error "cannot upload: library missing TEST compile-option"
+      }
+
+      if {[lsearch -exact -- \
+          $::eagle_platform(compileOptions) NETWORK] == -1} then {
+        error "cannot upload: library missing NETWORK compile-option"
+      }
+
+      if {![object invoke Eagle._Tests.Default \
+          TestHasScriptNewWebClientCallback ""]} then {
+        set error null
+
+        set code [object invoke Eagle._Tests.Default \
+            TestSetScriptNewWebClientCallback "" true true error]
+
+        if {$code ne "Ok"} then {
+          error [getStringFromObjectHandle $error]
+        }
+      }
+
+      set script [object create String {
+        if {[methodName ToString] eq "GetWebRequest"} then {
+          webRequest ContentType $contentType
+        }
+      }]
+
+      set data [uri upload \
+          -timeouttype network -inline -raw -encoding identity \
+          -webclientdata $script -data $formData $uri]
+    } else {
+      set options [list \
+          -binary true -type $contentType -query $formData]
+
+      set data [eval ::PackageRepository::getFileViaHttp \
+          [list $uri] [list 20] [list stdout] [list \
+          [expr {!$verboseMetadataSubmit}]] $options]
+    }
+
+    set code [::PackageRepository::getResponseCodeFromRawData $data]
+    set result [::PackageRepository::getResponseResultFromRawData $data]
+
+    if {[::PackageRepository::isResponseCodeOk $code]} then {
+      return $result
+    } else {
+      error [appendArgs \
+          "failed to submit package metadata: " $data]
+    }
+  }
+
+  #
+  # NOTE: This procedure attempts to query the identifier of the Fossil
+  #       checkout.  There are no arguments.  An empty string is returned if
+  #       the information cannot be determined.
+  #
+  proc getCheckoutId {} {
+    variable fossilFileNameOnly
+    variable fossilInfoCommand
+    variable fossilInfoCheckoutPattern
+    variable scriptDirectory
+
+    fossilMustBeInstalled
+
+    if {[isEagle]} then {
+      set directory [::PackageRepository::formatExecArgument \
+          $scriptDirectory]
+
+      if {[catch {
+        eval exec -nocarriagereturns -stdout output -stderr error \
+            [subst $fossilInfoCommand]
+      } result] == 0} then {
+        set result [appendArgs $output $error]
+      } else {
+        return ""
+      }
+    } else {
+      set directory $scriptDirectory
+
+      if {[catch {
+        eval exec [subst $fossilInfoCommand]
+      } result]} then {
+        return ""
+      }
+    }
+
+    if {![info exists result] || ![regexp -line -- \
+        $fossilInfoCheckoutPattern $result dummy match]} then {
+      return ""
+    }
+
+    return [string range [string trim $match] 0 9]
+  }
+
+  #
+  # NOTE: This procedure attempts to query the root directory of the Fossil
+  #       checkout.  There are no arguments.  An empty string is returned if
+  #       the information cannot be determined.
+  #
+  proc getCheckoutDirectory {} {
+    variable fossilFileNameOnly
+    variable fossilInfoCommand
+    variable fossilInfoLocalRootPattern
+    variable scriptDirectory
+
+    fossilMustBeInstalled
+
+    if {[isEagle]} then {
+      set directory [::PackageRepository::formatExecArgument \
+          $scriptDirectory]
+
+      if {[catch {
+        eval exec -nocarriagereturns -stdout output -stderr error \
+            [subst $fossilInfoCommand]
+      } result] == 0} then {
+        set result [appendArgs $output $error]
+      } else {
+        return ""
+      }
+    } else {
+      set directory $scriptDirectory
+
+      if {[catch {
+        eval exec [subst $fossilInfoCommand]
+      } result]} then {
+        return ""
+      }
+    }
+
+    if {![info exists result] || ![regexp -line -- \
+        $fossilInfoLocalRootPattern $result dummy match]} then {
+      return ""
+    }
+
+    return [string trim $match]
+  }
+
+  #
+  # NOTE: This procedure builds a native path using the specified parts and
+  #       returns it.  All arguments are considered to be parts of the path.
+  #
+  proc joinPath { args } {
+    return [file nativename [eval file join $args]]
+  }
+
+  #
+  # NOTE: This procedure attempts to verify that the root directory of the
+  #       Fossil checkout is present, valid, and is actually a directory.
+  #       There are no arguments.  Script errors will be raised if any of
+  #       the checks fail.
+  #
+  proc verifyCheckoutDirectory {} {
+    variable checkoutDirectory
+
+    #
+    # NOTE: Setup example directory paths for use in the error message
+    #       that may be produced by this procedure.  Since these values
+    #       are specific to the platform, they are setup in advance.
+    #       These values are NOT used to interact with the file system.
+    #
+    if {[isWindows]} then {
+      set repositories C:/repositories
+      set checkouts C:/checkouts
+    } else {
+      set repositories ~/repositories
+      set checkouts ~/checkouts
+    }
+
+    set message [subst {
+      The package client checkout directory has an issue:
+
+        %error%
+
+      Prior to running the package uploader client tool, Fossil must be
+      installed -AND- the Package File Server repository must be cloned
+      and opened, using commands very similar to the following:
+
+        mkdir [joinPath ${repositories}]
+        cd [joinPath ${repositories}]
+        fossil clone https://your_login@tcl.pkg.management/pkgd pkgd.fossil
+        mkdir [joinPath ${checkouts}]
+        cd [joinPath ${checkouts}]
+        fossil open [joinPath ${repositories} pkgd.fossil]
+
+      After the above steps have been completed, package uploader client
+      tool can be executed using a command very similar to the following:
+
+        tclsh [joinPath ${checkouts} client 1.0 neutral pkgr_upload.eagle]
+    }]
+
+    if {![info exists checkoutDirectory]} then {
+      error [string map [list \
+          %error% "checkout directory is missing"] \
+          $message]
+    }
+
+    if {[string length $checkoutDirectory] == 0} then {
+      error [string map [list \
+          %error% "checkout directory is invalid"] \
+          $message]
+    }
+
+    if {![file isdirectory $checkoutDirectory]} then {
+      error [string map [list %error% [appendArgs \
+          "checkout directory \"" $checkoutDirectory \
+          "\" is not really a directory"]] $message]
+    }
+  }
+
+  #
+  # NOTE: This procedure attempts to verify that an implementation of Fossil
+  #       is installed locally.  There are no arguments.  Script errors are
+  #       raised if any problems are found.  The return value is undefined.
+  #
+  proc fossilMustBeInstalled {} {
+    variable fossilFileNameOnly
+    variable fossilVersionCommand
+    variable fossilVersionPattern
+
+    set message {
+      Cannot use Fossil: it does not appear to be installed.
+
+      Fossil may be downloaded from "https://www.fossil-scm.org/"
+      and then installed by copying the (single) Fossil binary to
+      a directory that lies somewhere along the executable search
+      path.
+
+      Alternatively, it may be possible to install Fossil via the
+      package management subsystem included with your operating
+      system.
+    }
+
+    if {[isEagle]} then {
+      if {[catch {
+        eval exec -nocarriagereturns -stdout output -stderr error \
+            [subst $fossilVersionCommand]
+      } result] == 0} then {
+        set result [appendArgs $output $error]
+      } else {
+        error $message
+      }
+    } else {
+      if {[catch {
+        eval exec [subst $fossilVersionCommand]
+      } result]} then {
+        error $message
+      }
+    }
+
+    if {![info exists result] || \
+        ![regexp -- $fossilVersionPattern $result]} then {
+      error "cannot use Fossil: unknown or unsupported version"
+    }
+  }
+
+  #
+  # NOTE: This procedure attempts to verify that the checkout directory does
+  #       not contain any (stray) changes.  There are no arguments.  Non-zero
+  #       is returned if the verification is successful.
+  #
+  proc verifyThereAreNoChanges {} {
+    variable checkoutDirectory
+    variable fossilChangesCommand
+    variable fossilChangesPattern
+    variable fossilFileNameOnly
+
+    fossilMustBeInstalled
+    verifyCheckoutDirectory
+
+    if {[isEagle]} then {
+      set directory [::PackageRepository::formatExecArgument \
+          $checkoutDirectory]
+
+      if {[catch {
+        eval exec -nocarriagereturns -stdout output -stderr error \
+            [subst $fossilChangesCommand]
+      } result] == 0} then {
+        set result [appendArgs $output $error]
+      } else {
+        return false
+      }
+    } else {
+      set directory $checkoutDirectory
+
+      if {[catch {
+        eval exec [subst $fossilChangesCommand]
+      } result]} then {
+        return false
+      }
+    }
+
+    if {![info exists result] || \
+        ![regexp -- $fossilChangesPattern $result]} then {
+      return false
+    }
+
+    return true
+  }
+
+  #
+  # NOTE: This procedure attempts to verify that the checkout directory does
+  #       belong to the correct project.  There are no arguments.  Non-zero
+  #       is returned if the verification is successful.
+  #
+  proc verifyThisIsTheCorrectProject {} {
+    variable fossilFileNameOnly
+    variable fossilInfoCommand
+    variable fossilInfoProjectCodePattern
+    variable projectCode
+    variable scriptDirectory
+
+    fossilMustBeInstalled
+
+    if {[isEagle]} then {
+      set directory [::PackageRepository::formatExecArgument \
+          $scriptDirectory]
+
+      if {[catch {
+        eval exec -nocarriagereturns -stdout output -stderr error \
+            [subst $fossilInfoCommand]
+      } result] == 0} then {
+        set result [appendArgs $output $error]
+      } else {
+        return false
+      }
+    } else {
+      set directory $scriptDirectory
+
+      if {[catch {
+        eval exec [subst $fossilInfoCommand]
+      } result]} then {
+        return false
+      }
+    }
+
+    if {![info exists result] || ![regexp -line -- \
+        [subst $fossilInfoProjectCodePattern] $result]} then {
+      return false
+    }
+
+    return true
+  }
+
+  #
+  # NOTE: This procedure attempts to verify that the checkout directory does
+  #       belong to the correct branch.  There are no arguments.  Non-zero
+  #       is returned if the verification is successful.
+  #
+  proc verifyThisIsTheCorrectBranch {} {
+    variable fossilFileNameOnly
+    variable fossilInfoCommand
+    variable fossilInfoTagsPattern
+    variable scriptDirectory
+
+    fossilMustBeInstalled
+
+    if {[isEagle]} then {
+      set directory [::PackageRepository::formatExecArgument \
+          $scriptDirectory]
+
+      if {[catch {
+        eval exec -nocarriagereturns -stdout output -stderr error \
+            [subst $fossilInfoCommand]
+      } result] == 0} then {
+        set result [appendArgs $output $error]
+      } else {
+        return false
+      }
+    } else {
+      set directory $scriptDirectory
+
+      if {[catch {
+        eval exec [subst $fossilInfoCommand]
+      } result]} then {
+        return false
+      }
+    }
+
+    if {![info exists result] || \
+        ![regexp -line -- $fossilInfoTagsPattern $result]} then {
+      return false
+    }
+
+    return true
+  }
+
+  #
+  # NOTE: This procedure attempts to change the branch for the checkout
+  #       directory.  There are no arguments.  This procedure may raise
+  #       script errors.
+  #
+  proc changeToTheCorrectBranch {} {
+    variable checkoutDirectory
+    variable fossilFileNameOnly
+    variable fossilUpdateCommand
+
+    fossilMustBeInstalled
+    verifyCheckoutDirectory
+
+    if {[isEagle]} then {
+      set directory [::PackageRepository::formatExecArgument \
+          $checkoutDirectory]
+
+      if {[catch {
+        eval exec -success Success [subst $fossilUpdateCommand]
+      } error]} then {
+        error [appendArgs \
+            "could not change branch: " $error]
+      }
+    } else {
+      set directory $checkoutDirectory
+
+      if {[catch {
+        eval exec [subst $fossilUpdateCommand]
+      } error]} then {
+        error [appendArgs \
+            "could not change branch: " $error]
+      }
+    }
+  }
+
+  #
+  # NOTE: This procedure attempts to stage the specified package file using
+  #       Fossil.  The targetDirectory argument is the fully qualified path
+  #       to the package platform directory.  The fileName argument is the
+  #       relative name of the file to be staged.  This procedure may raise
+  #       script errors.
+  #
+  proc stageOnePackageFile { targetDirectory fileName } {
+    variable fossilAddCommand
+    variable fossilFileNameOnly
+
+    fossilMustBeInstalled
+
+    if {[isEagle]} then {
+      set directory [::PackageRepository::formatExecArgument \
+          $targetDirectory]
+
+      set fileName [::PackageRepository::formatExecArgument $fileName]
+
+      if {[catch {
+        eval exec -success Success [subst $fossilAddCommand]
+      } error]} then {
+        error [appendArgs \
+            "could not stage file \"" $fileName "\": " $error]
+      }
+    } else {
+      set directory $targetDirectory
+
+      if {[catch {
+        eval exec [subst $fossilAddCommand]
+      } error]} then {
+        error [appendArgs \
+            "could not stage file \"" $fileName "\": " $error]
+      }
+    }
+  }
+
+  #
+  # NOTE: This procedure attempts to stage the specified package files using
+  #       Fossil.  The fileNames argument is a list of (fully?) qualified
+  #       local file names to stage.
+  #
+  proc stagePackageFiles { language version platform fileNames } {
+    variable checkoutDirectory
+    variable fossilAddCommand
+    variable fossilFileNameOnly
+
+    ::PackageDownloader::verifyLanguageAndVersion $language $version isClient
+
+    if {$isClient} then {
+      error "cannot stage package files for client"
+    }
+
+    ::PackageDownloader::verifyPlatform $platform platform
+    verifyCheckoutDirectory
+
+    if {![verifyThereAreNoChanges]} then {
+      error "cannot stage files: there are pending changes"
+    }
+
+    if {![verifyThisIsTheCorrectProject]} then {
+      error "cannot stage files: wrong project"
+    }
+
+    if {![verifyThisIsTheCorrectBranch]} then {
+      changeToTheCorrectBranch
+
+      if {![verifyThisIsTheCorrectBranch]} then {
+        error "cannot stage files: still on wrong branch"
+      }
+    }
+
+    set targetDirectory [file join \
+        $checkoutDirectory packages $language $version $platform]
+
+    set relativeFileNames [getRelativeFileNames $fileNames 2]
+
+    foreach fileName $fileNames relativeFileName $relativeFileNames {
+      file mkdir [file join \
+          $targetDirectory [file dirname $relativeFileName]]
+
+      set checkoutFileName [file join $targetDirectory $relativeFileName]
+
+      file copy $fileName $checkoutFileName
+
+      if {![::PackageRepository::createOpenPgpSignature \
+          $checkoutFileName]} then {
+        error [appendArgs \
+            "could not stage file \"" $fileName \
+            "\": OpenPGP signing failed"]
+      }
+
+      set checkoutFileExtension [file extension $checkoutFileName]
+
+      if {$checkoutFileExtension eq ".eagle" || \
+          $checkoutFileExtension eq ".eeagle"} then {
+        if {![::PackageRepository::createHarpyCertificate \
+            $checkoutFileName]} then {
+          error [appendArgs \
+              "could not stage file \"" $fileName \
+              "\": Harpy signing failed"]
+        }
+
+        if {![::PackageRepository::createOpenPgpSignature \
+            [appendArgs $checkoutFileName .harpy]]} then {
+          error [appendArgs \
+              "could not stage file \"" $fileName \
+              ".harpy\": OpenPGP signing failed"]
+        }
+
+        stageOnePackageFile $targetDirectory [appendArgs \
+            $relativeFileName .harpy]
+
+        stageOnePackageFile $targetDirectory [appendArgs \
+            $relativeFileName .harpy.asc]
+      }
+
+      stageOnePackageFile $targetDirectory $relativeFileName
+      stageOnePackageFile $targetDirectory [appendArgs $relativeFileName .asc]
+    }
+  }
+
+  #
+  # NOTE: This procedure attempts to commit the staged package files to the
+  #       remote package file repository using Fossil.  The varName argument
+  #       is the name of a scalar variable in the context of the immediate
+  #       caller that will receive the resulting Fossil check-in identifier.
+  #
+  proc commitPackageFiles { package patchLevel language version varName } {
+    variable checkoutDirectory
+    variable fossilCommitCommand
+    variable fossilCommitPattern
+    variable fossilFileNameOnly
+
+    ::PackageDownloader::verifyPackageName $package
+    ::PackageDownloader::verifyPackagePatchLevel $patchLevel
+
+    ::PackageDownloader::verifyLanguageAndVersion \
+        [string tolower $language] $version isClient
+
+    if {$isClient} then {
+      error "cannot commit package files for client"
+    }
+
+    fossilMustBeInstalled
+    verifyCheckoutDirectory
+
+    set branch [appendArgs pkg_ $package _ $patchLevel]
+
+    set comment [appendArgs \
+        "Add package " $package " v" $patchLevel " for " $language \
+        " v" $version " using client \[" [getCheckoutId] \].]
+
+    if {[isEagle]} then {
+      set directory [::PackageRepository::formatExecArgument \
+          $checkoutDirectory]
+
+      set branch [::PackageRepository::formatExecArgument $branch]
+      set comment [::PackageRepository::formatExecArgument $comment]
+
+      if {[catch {
+        eval exec -nocarriagereturns -stdout output -stderr error \
+            [subst $fossilCommitCommand]
+      } result] == 0} then {
+        set result [appendArgs $output $error]
+      } else {
+        return false
+      }
+    } else {
+      set directory $checkoutDirectory
+
+      if {[catch {
+        eval exec [subst $fossilCommitCommand]
+      } result]} then {
+        return false
+      }
+    }
+
+    if {[string length $varName] > 0} then {
+      upvar 1 $varName checkin
+    }
+
+    if {![info exists result] || \
+        ![regexp -line -- $fossilCommitPattern $result dummy checkin]} then {
+      return false
+    }
+
+    return true
+  }
+
+  #
+  # NOTE: This procedure initializes the array containing data derived from
+  #       the command line arguments, if any.  The argv argument should be
+  #       the list of command line arguments.
+  #
+  # <internal>
+  proc setupArgumentData { argv } {
+    variable argumentData
+
+    if {![info exists argumentData(serverId)]} then {
+      set argumentData(serverId) ""
+    }
+
+    if {![info exists argumentData(apiKey)]} then {
+      set argumentData(apiKey) ""
+    }
+
+    if {![info exists argumentData(package)]} then {
+      set argumentData(package) ""
+    }
+
+    if {![info exists argumentData(patchLevel)]} then {
+      set argumentData(patchLevel) ""
+    }
+
+    if {![info exists argumentData(language)]} then {
+      set argumentData(language) ""
+    }
+
+    if {![info exists argumentData(version)]} then {
+      set argumentData(version) ""
+    }
+
+    if {![info exists argumentData(platform)]} then {
+      set argumentData(platform) ""
+    }
+
+    if {![info exists argumentData(fileNames)]} then {
+      set argumentData(fileNames) [list]
+    }
+
+    if {[llength $argv] >= 1} then {
+      set argumentData(serverId) [lindex $argv 0]
+    }
+
+    if {[llength $argv] >= 2} then {
+      set argumentData(apiKey) [lindex $argv 1]
+    }
+
+    if {[llength $argv] >= 3} then {
+      set argumentData(package) [lindex $argv 2]
+    }
+
+    if {[llength $argv] >= 4} then {
+      set argumentData(patchLevel) [lindex $argv 3]
+    }
+
+    if {[llength $argv] >= 5} then {
+      set argumentData(language) [lindex $argv 4]
+    }
+
+    if {[llength $argv] >= 6} then {
+      set argumentData(version) [lindex $argv 5]
+    }
+
+    if {[llength $argv] >= 7} then {
+      set argumentData(platform) [lindex $argv 6]
+    }
+
+    if {[llength $argv] >= 8} then {
+      set argumentData(fileNames) [lrange $argv 7 end]
+    }
+  }
+
+  #
+  # NOTE: This procedure is used to determine if all the package submission
+  #       data is available.  There are no arguments.  Non-zero is returned
+  #       if all the package submission data is available.  This procedure
+  #       should not raise script errors.
+  #
+  # <internal>
+  proc haveArgumentData {} {
+    variable argumentData
+
+    if {![info exists argumentData(serverId)]} then {
+      return false
+    }
+
+    #
+    # NOTE: *HACK* Actually, this *is* allowed.  It means that the
+    #       default server is being used.
+    #
+    # if {[string length $argumentData(serverId)] == 0} then {
+    #   return false
+    # }
+
+    if {![info exists argumentData(apiKey)]} then {
+      return false
+    }
+
+    if {[string length $argumentData(apiKey)] == 0} then {
+      return false
+    }
+
+    if {![info exists argumentData(package)]} then {
+      return false
+    }
+
+    if {[string length $argumentData(package)] == 0} then {
+      return false
+    }
+
+    if {![info exists argumentData(patchLevel)]} then {
+      return false
+    }
+
+    if {[string length $argumentData(patchLevel)] == 0} then {
+      return false
+    }
+
+    if {![info exists argumentData(language)]} then {
+      return false
+    }
+
+    if {[string length $argumentData(language)] == 0} then {
+      return false
+    }
+
+    if {![info exists argumentData(version)]} then {
+      return false
+    }
+
+    if {[string length $argumentData(version)] == 0} then {
+      return false
+    }
+
+    if {![info exists argumentData(platform)]} then {
+      return false
+    }
+
+    if {[string length $argumentData(platform)] == 0} then {
+      return false
+    }
+
+    if {![info exists argumentData(fileNames)]} then {
+      return false
+    }
+
+    if {[llength $argumentData(fileNames)] == 0} then {
+      return false
+    }
+
+    return true
+  }
+
+  #
+  # NOTE: This procedure is an event handler.  It handles the Changed event
+  #       for a text box.  It is not used when the user interface was built
+  #       with Tk.  The varName argument is the name of the scalar variable
+  #       that must be updated with the contents of the text box.  The sender
+  #       and e arguments are provided by the framework and represent the
+  #       control involved in the event and any extra data that may be
+  #       necessary to process the event.
+  #
+  proc textBoxEventHandler { varName sender e } {
+    set $varName [$sender Text]
+  }
+
+  #
+  # NOTE: This procedure is an event handler.  It handles double-clicking the
+  #       list box in both Tk and Eagle.  The varName argument is the name of
+  #       the scalar variable that must be updated with the list of items from
+  #       the list box -OR- the list of items from an interactive file picker
+  #       dialog.  The args argument, which is only used for Eagle, is a list
+  #       containing two elements.  The first element is the control involved
+  #       in the event.  The second element is any extra data that may be
+  #       necessary to process the event.
+  #
+  proc listBoxEventHandler { varName args } {
+    if {[isEagle]} then {
+      set sender [lindex $args 0]
+      set e [lindex $args 1]
+
+      set dialog [object create -alias OpenFileDialog]
+
+      $dialog RestoreDirectory true
+      $dialog Multiselect true
+      $dialog ShowDialog
+
+      set fileNames [$dialog -create FileNames]
+
+      $sender Items.Clear
+      $sender Items.AddRange $fileNames
+
+      set list [object create -alias StringList $fileNames]
+
+      set $varName [$list ToString]
+    } else {
+      set $varName [tk_getOpenFile -multiple true]
+    }
+  }
+
+  #
+  # NOTE: This procedure is an event handler.  It handles the Closed event for
+  #       a WinForms form -OR- the WM_DELETE_WINDOW event on a Tk window.  The
+  #       args argument is not really used, it is a placeholder to make this
+  #       procedure more portable between Tcl and Eagle.  This procedure may
+  #       raise script errors.
+  #
+  proc handleFormClosedEvent { args } {
+    if {[isEagle]} then {
+      set sender [lindex $args 0]; # NOTE: Disposal.
+      set e [lindex $args 1]; # NOTE: Disposal.
+    } else {
+      variable widgets; destroy $widgets(toplevel)
+    }
+
+    #
+    # NOTE: Terminate the [vwait].
+    #
+    set [appendArgs [namespace current] ::forever] 1
+  }
+
+  #
+  # NOTE: This procedure is an event handler.  It handles the submit button in
+  #       both Tk and Eagle.  It starts the package submission process.  The
+  #       args argument is not really used, it is a placeholder to make this
+  #       procedure more portable between Tcl and Eagle.  This procedure may
+  #       raise script errors.
+  #
+  # <internal>
+  proc submitEventHandler { args } {
+    variable argumentData
+
+    set batchMode [lindex $args 0]
+
+    if {[isEagle]} then {
+      set sender [lindex $args 1]; # NOTE: Disposal.
+      set e [lindex $args 2]; # NOTE: Disposal.
+    }
+
+    if {[haveArgumentData]} then {
+      set serverId $argumentData(serverId)
+      set apiKey $argumentData(apiKey)
+      set package $argumentData(package)
+      set patchLevel $argumentData(patchLevel)
+      set language $argumentData(language)
+      set version $argumentData(version)
+      set platform $argumentData(platform)
+      set fileNames $argumentData(fileNames)
+
+      ::PackageRepository::probeForOpenPgpInstallation
+      ::PackageRepository::openPgpMustBeInstalled
+
+      if {1} then {
+        stagePackageFiles \
+            [string tolower $language] $version $platform $fileNames
+
+        if {![commitPackageFiles \
+            $package $patchLevel [string totitle $language] $version \
+            checkin]} then {
+          error "failed to commit package files"
+        }
+
+        #
+        # TODO: Is this the best heuristic here for figuring out that the
+        #       platform should really be "automatic" in the repository?
+        #
+        if {$platform eq "neutral" || \
+            $platform eq [::PackageDownloader::getPlatform]} then {
+          set scriptPlatform ""
+        } else {
+          set scriptPlatform $platform
+        }
+
+        set script [createRepositoryScript \
+            $serverId $checkin [string tolower $language] $version \
+            $scriptPlatform $fileNames [list]]
+
+        set scriptFileName [file join \
+            [::PackageRepository::getFileTempDirectory PKGR_UPLOAD_TEMP] \
+            [appendArgs pkgr_upload_ [::PackageRepository::getUniqueSuffix]]]
+
+        writeFile $scriptFileName $script
+
+        if {![::PackageRepository::createOpenPgpSignature \
+            $scriptFileName]} then {
+          error [appendArgs \
+              "cannot submit package metadata: OpenPGP signing of \"" \
+              $scriptFileName "\" failed"]
+        }
+
+        set certificate [readFile [appendArgs $scriptFileName .asc]]
+
+        set result [submitPackageMetadata \
+            $apiKey $package $patchLevel [string totitle $language] \
+            $script $certificate]
+
+        if {!$batchMode} then {
+          set title [appendArgs \
+              "Package Uploader Client: " [lindex [info level 0] 0]]
+
+          if {[string length $result] > 0} then {
+            set message [appendArgs \
+                "Package was submitted successfully: " $result]
+          } else {
+            set message "Package was submitted successfully."
+          }
+
+          if {[isEagle]} then {
+            catch {
+              object invoke MessageBox Show $message $title
+            }
+          } else {
+            catch {
+              tk_messageBox -type ok -message $message -title $title
+            }
+          }
+        }
+      }
+    } else {
+      error "cannot initiate package submission: one or more fields missing"
+    }
+  }
+
+  #
+  # NOTE: This procedure is an event handler.  It handles the clear button in
+  #       Tk and Eagle.  It is used to clear the package submission data.  The
+  #       args argument is not really used, it is a placeholder to make this
+  #       procedure more portable between Tcl and Eagle.  This procedure may
+  #       raise script errors.
+  #
+  proc clearEventHandler { args } {
+    variable argumentData
+
+    if {[isEagle]} then {
+      set sender [lindex $args 0]; # NOTE: Disposal.
+      set e [lindex $args 1]; # NOTE: Disposal.
+
+      variable widgets
+
+      $widgets(2) Text ""
+      $widgets(4) Text ""
+      $widgets(6) Text ""
+      $widgets(8) Text ""
+      $widgets(10) Text ""
+      $widgets(12) Text ""
+      $widgets(14) Text ""
+      $widgets(16) Items.Clear
+    } else {
+      set argumentData(serverId) ""
+      set argumentData(apiKey) ""
+      set argumentData(package) ""
+      set argumentData(patchLevel) ""
+      set argumentData(language) ""
+      set argumentData(version) ""
+      set argumentData(platform) ""
+    }
+
+    #
+    # NOTE: This is done for Tk because it will also clear the on-screen
+    #       widget itself.  For Eagle, this is necessary because there is
+    #       no "listvariable" option and clearing the on-screen widget has
+    #       no impact on the underyling list.
+    #
+    set argumentData(fileNames) [list]
+  }
+
+  #
+  # NOTE: This procedure creates the user interface for this tool using Eagle
+  #       and WinForms.  The existing argument data, if any, will be used to
+  #       populate it.  There are no arguments.
+  #
+  # <internal>
+  proc setupWinFormsUserInterface {} {
+    variable argumentData
+    variable widgets
+
+    object load -import System.Windows.Forms
+
+    ###########################################################################
+
+    set form [object create -alias Form]
+    set widgets(0) $form
+
+    $form Text "Package Uploader Client"
+    $form MaximizeBox false
+    $form AutoSize true
+    $form add_Closed [namespace code [list handleFormClosedEvent]]
+
+    ###########################################################################
+
+    set widgets(1) [object create -alias Label]
+    $widgets(1) Name lblServerId
+    $widgets(1) Text "Server ID (normally blank)"
+
+    ###########################################################################
+
+    set widgets(2) [object create -alias TextBox]
+
+    $widgets(2) Name txtServerId
+    $widgets(2) Text $argumentData(serverId)
+
+    $widgets(2) add_TextChanged [namespace code \
+        [list textBoxEventHandler [appendArgs [namespace current] \
+        ::argumentData(serverId)]]]
+
+    ###########################################################################
+
+    set widgets(3) [object create -alias Label]
+    $widgets(3) Name lblApiKey
+    $widgets(3) Text "API Key (40 hexadecimal digits)"
+
+    ###########################################################################
+
+    set widgets(4) [object create -alias TextBox]
+
+    $widgets(4) Name txtApiKey
+    $widgets(4) Text $argumentData(apiKey)
+
+    $widgets(4) add_TextChanged [namespace code \
+        [list textBoxEventHandler [appendArgs [namespace current] \
+        ::argumentData(apiKey)]]]
+
+    ###########################################################################
+
+    set widgets(5) [object create -alias Label]
+    $widgets(5) Name lblPackage
+    $widgets(5) Text "Package Name"
+
+    ###########################################################################
+
+    set widgets(6) [object create -alias TextBox]
+
+    $widgets(6) Name txtPackage
+    $widgets(6) Text $argumentData(package)
+
+    $widgets(6) add_TextChanged [namespace code \
+        [list textBoxEventHandler [appendArgs [namespace current] \
+        ::argumentData(package)]]]
+
+    ###########################################################################
+
+    set widgets(7) [object create -alias Label]
+    $widgets(7) Name lblPatchLevel
+    $widgets(7) Text "Package Patch Level"
+
+    ###########################################################################
+
+    set widgets(8) [object create -alias TextBox]
+
+    $widgets(8) Name txtPatchLevel
+    $widgets(8) Text $argumentData(patchLevel)
+
+    $widgets(8) add_TextChanged [namespace code \
+        [list textBoxEventHandler [appendArgs [namespace current] \
+        ::argumentData(patchLevel)]]]
+
+    ###########################################################################
+
+    set widgets(9) [object create -alias Label]
+    $widgets(9) Name lblLanguage
+    $widgets(9) Text Language
+
+    ###########################################################################
+
+    set widgets(10) [object create -alias TextBox]
+
+    $widgets(10) Name txtLanguage
+    $widgets(10) Text $argumentData(language)
+
+    $widgets(10) add_TextChanged [namespace code \
+        [list textBoxEventHandler [appendArgs [namespace current] \
+        ::argumentData(language)]]]
+
+    ###########################################################################
+
+    set widgets(11) [object create -alias Label]
+    $widgets(11) Name lblVersion
+    $widgets(11) Text Version
+
+    ###########################################################################
+
+    set widgets(12) [object create -alias TextBox]
+
+    $widgets(12) Name txtVersion
+    $widgets(12) Text $argumentData(version)
+
+    $widgets(12) add_TextChanged [namespace code \
+        [list textBoxEventHandler [appendArgs [namespace current] \
+        ::argumentData(version)]]]
+
+    ###########################################################################
+
+    set widgets(13) [object create -alias Label]
+    $widgets(13) Name lblPlatform
+    $widgets(13) Text Platform
+
+    ###########################################################################
+
+    set widgets(14) [object create -alias TextBox]
+
+    $widgets(14) Name txtPlatform
+    $widgets(14) Text $argumentData(platform)
+
+    $widgets(14) add_TextChanged [namespace code \
+        [list textBoxEventHandler [appendArgs [namespace current] \
+        ::argumentData(platform)]]]
+
+    ###########################################################################
+
+    set widgets(15) [object create -alias Label]
+    $widgets(15) Name lblFileNames
+    $widgets(15) Text Files
+
+    ###########################################################################
+
+    set widgets(16) [object create -alias ListBox]
+    $widgets(16) Name lstFileNames
+
+    $widgets(16) add_DoubleClick [namespace code \
+        [list listBoxEventHandler [appendArgs [namespace current] \
+        ::argumentData(fileNames)]]]
+
+    ###########################################################################
+
+    set widgets(17) [object create -alias Button]
+    $widgets(17) Name btnSubmit
+    $widgets(17) Text Submit
+    $widgets(17) add_Click [namespace code [list submitEventHandler false]]
+
+    ###########################################################################
+
+    set widgets(18) [object create -alias Button]
+    $widgets(18) Name btnClear
+    $widgets(18) Text Clear
+    $widgets(18) add_Click [namespace code [list clearEventHandler]]
+
+    ###########################################################################
+
+    set horizontalMargin \
+        [expr {([$form Width] - [$form ClientSize.Width]) / 2}]
+
+    set verticalMargin \
+        [expr {([$form Height] - [$form ClientSize.Height]) / 2}]
+
+    ###########################################################################
+
+    set top $verticalMargin
+
+    foreach name [lsort -integer [array names widgets]] {
+      if {$name eq "0"} then continue
+
+      $widgets($name) Width [expr {
+        [$form ClientSize.Width] - ($horizontalMargin * 2)
+      }]
+
+      $widgets($name) Left $horizontalMargin
+      $widgets($name) Top $top
+      $form Controls.Add $widgets($name)
+
+      incr top [$widgets($name) Height]
+      incr top $verticalMargin
+    }
+
+    $form Show
+
+    after 0 [list nop]; # NOTE: Needed for the [vwait].
+  }
+
+  #
+  # NOTE: This procedure creates the user interface for this tool using Tcl
+  #       and Tk.  The existing argument data, if any, will be used to
+  #       populate it.  There are no arguments.
+  #
+  # <internal>
+  proc setupTkUserInterface {} {
+    variable widgets
+
+    package require Tk
+    catch {console show}
+    catch {wm withdraw .}
+
+    ###########################################################################
+
+    set toplevel [toplevel .uploader]
+    set widgets(toplevel) $toplevel
+
+    wm title $toplevel "Package Uploader Client"
+    wm minsize $toplevel 250 0
+
+    wm protocol $toplevel WM_DELETE_WINDOW \
+        [namespace code [list handleFormClosedEvent]]
+
+    ###########################################################################
+
+    set widgets(label,serverId) [label [appendArgs \
+        $toplevel .la_serverId] -text "Server ID (normally blank)"]
+
+    ###########################################################################
+
+    set widgets(entry,serverId) [entry [appendArgs \
+        $toplevel .e_serverId] -textvariable [appendArgs \
+        [namespace current] ::argumentData(serverId)]]
+
+    ###########################################################################
+
+    set widgets(label,apiKey) [label [appendArgs \
+        $toplevel .la_apiKey] -text "API Key (40 hexadecimal digits)"]
+
+    ###########################################################################
+
+    set widgets(entry,apiKey) [entry [appendArgs \
+        $toplevel .e_apiKey] -textvariable [appendArgs \
+        [namespace current] ::argumentData(apiKey)]]
+
+    ###########################################################################
+
+    set widgets(label,package) [label [appendArgs \
+        $toplevel .la_package] -text "Package Name"]
+
+    ###########################################################################
+
+    set widgets(entry,package) [entry [appendArgs \
+        $toplevel .e_package] -textvariable [appendArgs \
+        [namespace current] ::argumentData(package)]]
+
+    ###########################################################################
+
+    set widgets(label,patchLevel) [label [appendArgs \
+        $toplevel .la_patchLevel] -text "Package Patch Level"]
+
+    ###########################################################################
+
+    set widgets(entry,patchLevel) [entry [appendArgs \
+        $toplevel .e_patchLevel] -textvariable [appendArgs \
+        [namespace current] ::argumentData(patchLevel)]]
+
+    ###########################################################################
+
+    set widgets(label,language) [label [appendArgs \
+        $toplevel .la_language] -text Language]
+
+    ###########################################################################
+
+    set widgets(entry,language) [entry [appendArgs \
+        $toplevel .e_language] -textvariable [appendArgs \
+        [namespace current] ::argumentData(language)]]
+
+    ###########################################################################
+
+    set widgets(label,version) [label [appendArgs \
+        $toplevel .la_version] -text Version]
+
+    ###########################################################################
+
+    set widgets(entry,version) [entry [appendArgs \
+        $toplevel .e_version] -textvariable [appendArgs \
+        [namespace current] ::argumentData(version)]]
+
+    ###########################################################################
+
+    set widgets(label,platform) [label [appendArgs \
+        $toplevel .la_platform] -text Platform]
+
+    ###########################################################################
+
+    set widgets(entry,platform) [entry [appendArgs \
+        $toplevel .e_platform] -textvariable [appendArgs \
+        [namespace current] ::argumentData(platform)]]
+
+    ###########################################################################
+
+    set widgets(label,fileNames) [label [appendArgs \
+        $toplevel .la_fileNames] -text Files]
+
+    ###########################################################################
+
+    set widgets(listbox,fileNames) [listbox [appendArgs \
+        $toplevel .li_fileNames] -listvariable [appendArgs \
+        [namespace current] ::argumentData(fileNames)]]
+
+    bind $widgets(listbox,fileNames) <Double-Button-1> \
+        [namespace code [list listBoxEventHandler [appendArgs \
+        [namespace current] ::argumentData(fileNames)]]]
+
+    ###########################################################################
+
+    set widgets(button,submit) [button \
+        [appendArgs $toplevel .b_submit] -text Submit -command \
+        [namespace code [list submitEventHandler false]]]
+
+    ###########################################################################
+
+    set widgets(button,clear) [button \
+        [appendArgs $toplevel .b_clear] -text Clear -command \
+        [namespace code [list clearEventHandler]]]
+
+    ###########################################################################
+
+    pack $widgets(label,serverId) $widgets(entry,serverId) \
+        $widgets(label,apiKey) $widgets(entry,apiKey) \
+        $widgets(label,package) $widgets(entry,package) \
+        $widgets(label,patchLevel) $widgets(entry,patchLevel) \
+        $widgets(label,language) $widgets(entry,language) \
+        $widgets(label,version) $widgets(entry,version) \
+        $widgets(label,platform) $widgets(entry,platform) \
+        $widgets(label,fileNames) $widgets(listbox,fileNames) \
+        $widgets(button,submit) $widgets(button,clear) \
+        -expand true -fill both
+
+    pack $widgets(button,submit) $widgets(button,clear) \
+        -anchor e -expand false -fill none
+  }
+
+  #
+  # NOTE: This package requires both the package repository and downloader
+  #       client packages.
+  #
+  package require Eagle.Package.Repository
+  package require Eagle.Package.Downloader
+
+  #
+  # NOTE: This package requires that support for namespaces, which is an
+  #       optional feature of Eagle, must be enabled.
+  #
+  if {[isEagle] && ![namespace enable]} then {
+    error "namespaces must be enabled for this package"
+  }
+
+  #
+  # NOTE: Attempt to read optional settings file now.  This may override
+  #       one or more of the variable setup in the next step.
+  #
+  ::PackageRepository::maybeReadSettingsFiles [info script]
+
+  #
+  # NOTE: Setup the variables, within this namespace, used by this package.
+  #
+  setupUploadVars false
+  setupCheckoutVars false
+
+  #
+  # NOTE: Provide the package to the interpreter.
+  #
+  package provide Eagle.Package.Uploader 1.0.10
+}
+
