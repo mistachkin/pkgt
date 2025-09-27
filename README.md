@@ -147,10 +147,10 @@ Distributing Tcl/Eagle packages has traditionally involved a mix of ad‑hoc ste
    ```tcl
    # Inside Eagle
    set pkgtRoot [file normalize "./vendor/pkgt"]
-   path add [file join $pkgtRoot client 1.0 neutral]
+   lappend ::auto_path [file join $pkgtRoot client 1.0 neutral]
 
    # Optional: also add externals if not on your path already
-   path add [file join $pkgtRoot externals Eagle lib Eagle1.0]
+   lappend ::auto_path [file join $pkgtRoot externals Eagle lib Eagle1.0]
 
    # Run interactive/CLI setup to register repository endpoints and API keys:
    source [file join $pkgtRoot client 1.0 neutral pkgr_setup.eagle]
@@ -214,7 +214,7 @@ Use the **uploads** client and/or helper:
 ```tcl
 # Eagle
 set pkgtRoot [file normalize "./vendor/pkgt"]
-path add [file join $pkgtRoot client 1.0 neutral]
+lappend ::auto_path [file join $pkgtRoot client 1.0 neutral]
 
 # Upload tool:
 source [file join $pkgtRoot client 1.0 neutral pkgr_upload.eagle]
