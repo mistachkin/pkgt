@@ -62,10 +62,12 @@ Distributing Tcl/Eagle packages has traditionally involved a mix of ad‑hoc ste
 │  ├─ pkgr_an_d_get.sh
 │  └─ pkgr_an_d_install.sh  # helper scripts to fetch/install the client
 └─ doc/
-   └─ v1.html               # v1 toolset documentation (reference)
+   ├─ redirector_v1.html    # URN/URL redirector server documentation (reference)
+   ├─ repository_v1.html    # package metadata server documentation (reference)
+   └─ toolset_v1.html       # package client toolset documentation (reference)
 ```
 
-> File names and layout above come from the initial import. See the commit tree for the authoritative list. The current version is **1.0.11**.
+> File names and layout above come from the initial import(s). See the commit tree for the authoritative list. The current version is **1.0.11**.
 
 ---
 
@@ -250,7 +252,7 @@ A short slide deck from Tcl’16 gives a good overview of this flow and security
   * **File server** base URLs.
   * API keys (**read** and **full**) for private/personal repositories.
 
-* **Persisted settings**: setup writes settings that subsequent runs of the client will use automatically (both for on‑demand resolution and pre‑installation). See `doc/v1.html` for parameter names and advanced options.
+* **Persisted settings**: setup writes settings that subsequent runs of the client will use automatically (both for on‑demand resolution and pre‑installation). See `doc/toolset_v1.html` for parameter names and advanced options.
 
 ---
 
