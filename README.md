@@ -3,6 +3,8 @@
 > Secure, cross‑platform package delivery for **Tcl** and **Eagle** — designed to fetch on‑demand or pre‑install packages with cryptographic verification.
 
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](LICENSE)
+[![Discord](https://img.shields.io/discord/1147557513588375572?style=flat-square&label=Discord&logo=discord&logoColor=white&color=7289DA)](https://urn.to/r/discord)
+[![Coverity Scan](https://img.shields.io/coverity/scan/eagle)](https://scan.coverity.com/projects/eagle)
 
 ---
 
