@@ -770,6 +770,19 @@ if {[llength $argv] >= 1 && [llength $argv] <= 12} then {
   }
 
   #
+  # BUGFIX: Since we are going to [source] an external file (i.e. via
+  #         [package require]), make sure the default (bootstrap) key
+  #         rings are loaded first, but only if we are running with
+  #         script security enabled.  Technically, this should not be
+  #         required if script security was enabled through a typical
+  #         mechanism, e.g. [source enableSecurity], etc.
+  #
+  if {[security ""]} then {
+    keyring clear; keyring bootstrap
+    emitWarning "cleared key rings and merged all bootstrap key rings"
+  }
+
+  #
   # HACK: Reformat some of the spacing in the certificate file to make
   #       it easier to read.
   #
