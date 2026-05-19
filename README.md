@@ -117,7 +117,7 @@ Distributing Tcl/Eagle packages has traditionally involved a mix of ad‑hoc ste
 
    ```tcl
    # Point this to where you vendored pkgt
-   set pkgtRoot [file normalize [file join [pwd] vendor pkgt]]
+   set pkgtRoot [file normalize [file join full path to pkgt base]]
 
    # Add pkgt client + externals to Tcl's auto_path:
    lappend ::auto_path [file join $pkgtRoot client 1.0 neutral]
@@ -149,7 +149,7 @@ Distributing Tcl/Eagle packages has traditionally involved a mix of ad‑hoc ste
 
    ```tcl
    # Inside Eagle
-   set pkgtRoot [file normalize "./vendor/pkgt"]
+   set pkgtRoot [file normalize [file join full path to pkgt base]]
    lappend ::auto_path [file join $pkgtRoot client 1.0 neutral]
 
    # Optional: also add externals if not on your path already
@@ -216,7 +216,7 @@ Use the **uploads** client and/or helper:
 
 ```tcl
 # Eagle
-set pkgtRoot [file normalize "./vendor/pkgt"]
+set pkgtRoot [file normalize [file join full path to pkgt base]]
 lappend ::auto_path [file join $pkgtRoot client 1.0 neutral]
 
 # Upload tool:
