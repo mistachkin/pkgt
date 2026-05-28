@@ -27,6 +27,37 @@ namespace eval ::PackageInstaller {
   #       emit the command line usage information.
   #
   proc usage { {error ""} } {
+    # <help>
+    # This procedure reports a fatal usage error for the package installer tool
+    # and then terminates the process.  It exists to give the operator a clear,
+    # consistent message whenever the tool cannot proceed -- most commonly when
+    # the command line arguments are missing or malformed -- and to always
+    # print the canonical command line syntax so the correct invocation is
+    # obvious.  It is the single "give up and explain how to use me" exit point
+    # for this tool.
+    #
+    # How it works: if a non-empty error string is supplied, it is written to
+    # the standard output channel first.  It then prints a usage line built
+    # from the tail of the running executable name and the tail of the current
+    # script name, followed by the literal argument template showing that an
+    # apiKey and name are required and that version and language are optional.
+    # Finally it calls [exit 1], so this procedure never returns to its caller;
+    # the process ends with a non-zero (failure) status.
+    #
+    # SECURITY: the displayed template documents that an API key is the first
+    # required argument.  Because this message is printed to standard output,
+    # callers should avoid passing secret material (such as the API key value
+    # itself) as the error string, since it would be echoed to the console.
+    #
+    # Arguments:
+    #   error -- Optional.  A specific error message to print before the usage
+    #            text.  When omitted or empty, only the usage text is printed.
+    #
+    # Results:
+    #   Does not return; the process is terminated via [exit 1] with a failure
+    #   exit status.
+    # </help>
+
     if {[string length $error] > 0} then {puts stdout $error}
 
     puts stdout "usage:\

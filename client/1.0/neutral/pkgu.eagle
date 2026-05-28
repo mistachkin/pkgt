@@ -27,6 +27,54 @@ namespace eval ::PackageUploader {
   #       and set back to their default values.
   #
   proc setupUploadVars { force } {
+    # <help>
+    # This procedure establishes the default values for every configuration
+    # parameter used by the package uploader client, storing each one as a
+    # variable in this namespace.  It exists so that the rest of the package
+    # has a single, well-defined place where all of its tunable behavior is
+    # initialized; it is called once at package load time and may be called
+    # again to reset configuration back to known defaults.
+    #
+    # How it works: it first requires that the namespace variable "pkgr_path"
+    # already exist (it is expected to hold the fully qualified path of the
+    # directory containing this script) and raises a script error if it does
+    # not.  For every other configuration variable, it uses a guard of the
+    # form: if the force flag is true, OR the variable does not yet exist, set
+    # it to its default value.  This means existing values are preserved on a
+    # normal (non-forced) call, allowing a settings file (read elsewhere) to
+    # override these defaults without being clobbered.  The defaults include
+    # the Fossil project code that all checkouts are validated against, the
+    # script directory, the Fossil executable file name (platform dependent),
+    # and a family of Fossil command templates and regular expression patterns
+    # used to verify Fossil's version, detect pending changes, read checkout
+    # info, confirm the project code and branch, update the checkout, and add
+    # and commit files.  The command templates contain bracketed-and-braced
+    # placeholders (for example the file name and the working directory) that
+    # are resolved later via [subst] at the point of use.
+    #
+    # Security note: the projectCode default and the related patterns are the
+    # mechanism by which this tool confirms it is operating on the intended
+    # repository before staging or committing anything.  The patterns are
+    # trusted inputs here (they are constants), but a settings file is allowed
+    # to override them on a non-forced call, so the integrity of those checks
+    # ultimately depends on the trustworthiness of any settings file that was
+    # read.  Because the command templates are later passed through [subst]
+    # and [eval exec], the substituted values must originate from trusted
+    # configuration, not from untrusted external input.
+    #
+    # Arguments:
+    #   force -- A boolean.  When true, every configuration variable is reset
+    #            to its built-in default, overwriting any existing value.  When
+    #            false, only variables that do not already exist are set, so
+    #            previously configured values (such as those loaded from a
+    #            settings file) are left intact.
+    #
+    # Results:
+    #   The return value is not meaningful and should not be relied upon.  A
+    #   script error is raised if the required "pkgr_path" namespace variable
+    #   does not exist.
+    # </help>
+
     #
     # NOTE: This variable must exist and must be the fully qualified path
     #       of the directory containing this script.
@@ -231,6 +279,32 @@ namespace eval ::PackageUploader {
   #       to their default values.
   #
   proc setupCheckoutVars { force } {
+    # <help>
+    # This procedure establishes the default value for the configuration
+    # parameter that records the root directory of the Fossil checkout used by
+    # the package uploader client.  It is separated from [setupUploadVars]
+    # because determining the checkout directory requires actually running
+    # Fossil (via [getCheckoutDirectory]), which can be slow and can raise script
+    # errors, so it is deferred until needed and kept distinct from the cheap,
+    # constant defaults.
+    #
+    # How it works: using the same force-or-not-yet-defined guard pattern as
+    # the other setup procedure, it sets the "checkoutDirectory" namespace
+    # variable to the value returned by [getCheckoutDirectory], which queries the
+    # local Fossil checkout.  On a non-forced call, an already-defined value
+    # (for example one supplied by a settings file) is preserved.
+    #
+    # Arguments:
+    #   force -- A boolean.  When true, the checkout directory variable is
+    #            recomputed and overwritten.  When false, it is set only if it
+    #            does not already exist.
+    #
+    # Results:
+    #   The return value is not meaningful.  Because it may call
+    #   getCheckoutDirectory, which requires Fossil to be installed, this
+    #   procedure may raise script errors.
+    # </help>
+
     #
     # NOTE: What is the fully qualified path to the root directory of the
     #       Fossil checkout containing the package client toolset?  This
@@ -251,6 +325,35 @@ namespace eval ::PackageUploader {
   #       script errors.
   #
   proc formatStringMapValue { value } {
+    # <help>
+    # This procedure formats a string so that it can be safely embedded as a
+    # replacement value within a script template that will later be processed
+    # by the [string map] command.  It exists because [createRepositoryScript]
+    # substitutes language, version, and platform values into a generated
+    # script block, and those values must be inserted as valid script words
+    # (properly list-quoted when they contain whitespace or special
+    # characters) rather than as raw text that could break the surrounding
+    # syntax.
+    #
+    # How it works: an empty value is returned as an explicit pair of double
+    # quote characters (an empty string word) so that the substitution site is
+    # not left blank.  Otherwise the value is wrapped as a single-element list;
+    # if that list form is identical to the original value (meaning the value
+    # needed no quoting), the original is returned as-is, and if quoting was
+    # required, the list form (with braces or backslashes added by the list
+    # machinery) is returned instead.
+    #
+    # Arguments:
+    #   value -- The string to format for safe inclusion as a [string map]
+    #            replacement value.  Any string is acceptable, including the
+    #            empty string.
+    #
+    # Results:
+    #   A string suitable for direct substitution into a script: either an
+    #   empty-string word, the unchanged value, or a list-quoted form of the
+    #   value.  This procedure does not raise script errors.
+    # </help>
+
     if {[string length $value] == 0} then {
       return \"\"
     }
@@ -271,6 +374,34 @@ namespace eval ::PackageUploader {
   #       may not raise script errors.
   #
   proc countCommonPathParts { path1 path2 } {
+    # <help>
+    # This procedure counts how many leading path components two paths have in
+    # common.  It is a helper used by [getCommonContainingDirectory] to discover
+    # the deepest directory that a collection of file names all share, which in
+    # turn is used to compute relative file names for staging.
+    #
+    # How it works: both paths are split into their component lists using [file
+    # split].  Walking from the first component up to the shorter of the two
+    # lengths, it compares components position by position and returns the
+    # index at which the first mismatch occurs.  If no mismatch is found within
+    # the shorter length, every compared component matched and the shorter
+    # length itself is returned.
+    #
+    # Tricky details: the comparison is exact string equality of each split
+    # component, so it is case sensitive and does not perform any path
+    # normalization (it does not resolve "." or ".." or symbolic links).  The
+    # count is measured in path components, not characters.
+    #
+    # Arguments:
+    #   path1 -- The first path to compare.
+    #   path2 -- The second path to compare.
+    #
+    # Results:
+    #   The number of leading path components that are identical between the
+    #   two paths, or zero if they share no common prefix.  This procedure does
+    #   not raise script errors.
+    # </help>
+
     set parts1 [file split $path1]
     set length1 [llength $parts1]
 
@@ -299,6 +430,41 @@ namespace eval ::PackageUploader {
   #       no common containing directory, an empty string is returned.
   #
   proc getCommonContainingDirectory { fileNames } {
+    # <help>
+    # This procedure determines the deepest directory that contains all of the
+    # specified file names, if such a common directory exists.  It exists to
+    # support computing relative file names: knowing the shared root lets the
+    # uploader strip a common prefix and reproduce the remaining directory
+    # structure inside the package checkout.
+    #
+    # How it works: for an empty list it returns the empty string, and for a
+    # single file it returns that file's directory via [file dirname].  For two
+    # or more files it iterates over the remaining file names, using
+    # [countCommonPathParts] to find, against a running reference file name, the
+    # smallest number of shared leading path components across the whole set.
+    # If at any point two files share no components at all, there is no common
+    # directory and the empty string is returned immediately.  Finally it
+    # rebuilds the common directory by joining the first (minimumCount - 1)
+    # components of the reference file's split path; the decrement drops the
+    # last shared component because the shared portion is treated as a path
+    # prefix.
+    #
+    # Tricky details: comparisons are exact and unnormalized (inherited from
+    # [countCommonPathParts]), so paths should already be in a consistent form.
+    # The reference file used for the final reconstruction is updated to
+    # whichever file produced the new minimum, so the result reflects the most
+    # constraining member of the set.
+    #
+    # Arguments:
+    #   fileNames -- A list of (preferably fully qualified) file names to
+    #                examine.  May be empty.
+    #
+    # Results:
+    #   The fully qualified common containing directory shared by all of the
+    #   file names, or the empty string if the list is empty or the files have
+    #   no common directory.  This procedure does not raise script errors.
+    # </help>
+
     set length [llength $fileNames]
 
     if {$length == 0} then {
@@ -345,6 +511,47 @@ namespace eval ::PackageUploader {
   #       errors.
   #
   proc getRelativeFileNames { fileNames maximumLevels } {
+    # <help>
+    # This procedure converts a list of (preferably fully qualified) file
+    # names into a corresponding list of relative file names, computed against
+    # their common containing directory's parent.  It exists so that files
+    # selected from arbitrary locations on disk can be reproduced under the
+    # package checkout with a sensible, shallow directory structure rooted at
+    # the last shared directory component.
+    #
+    # How it works: it finds the common containing directory via
+    # [getCommonContainingDirectory] and splits it.  The chosen anchor index is
+    # the index of the last component of that common directory, so each file
+    # name is made relative starting at that final shared component (its
+    # directory name is retained as the first relative component).  For each
+    # input file, the trailing components from the anchor to the end are joined
+    # into a relative path.  Each result is validated to be non-empty and of
+    # relative path type.
+    #
+    # Tricky details and security: if the common directory has no components
+    # (so it cannot go up one level), a script error is raised.  When
+    # maximumLevels is greater than zero, any file whose relative path has more
+    # components than maximumLevels causes a script error; this depth cap is a
+    # safeguard against unexpectedly deep paths (callers pass 2, limiting
+    # staged files to a single subdirectory level).  A final check rejects any
+    # computed name that is not of pathtype "relative", which guards against
+    # absolute paths slipping through and being written outside the intended
+    # target directory.
+    #
+    # Arguments:
+    #   fileNames     -- A list of (preferably fully qualified) file names to
+    #                    convert.  Should share a common containing directory.
+    #   maximumLevels -- The maximum allowed path depth (number of components)
+    #                    for each resulting relative name.  Zero or a negative
+    #                    value disables the depth check.
+    #
+    # Results:
+    #   A list of relative file names, one per input file, in the same order.
+    #   A script error is raised if there is no usable common directory, if any
+    #   file exceeds the maximum depth, or if any computed name is not actually
+    #   relative.
+    # </help>
+
     set directory [getCommonContainingDirectory $fileNames]
     set directoryParts [file split $directory]
     set fileNameIndex [expr {[llength $directoryParts] - 1}]
@@ -391,6 +598,42 @@ namespace eval ::PackageUploader {
   #       script errors.
   #
   proc getScriptChunkForFileNames { fileNames maximumLevels } {
+    # <help>
+    # This procedure builds a fragment of Eagle/Tcl script source that, when
+    # later evaluated, appends each of the specified files to a list variable
+    # named "fileNames".  It is used by [createRepositoryScript] to embed the
+    # set of package files into the generated repository download script in a
+    # portable, reconstructable form.
+    #
+    # How it works: it first reduces the inputs to relative file names via
+    # [getRelativeFileNames] (passing maximumLevels through as the depth cap).
+    # For each relative name it emits a line of the form that appends, to the
+    # list variable fileNames, the result of a bracketed [file join] command
+    # whose arguments are the individual split components of the relative path.
+    # Splitting into components and rejoining with [file join] inside the
+    # generated script keeps the embedded paths platform neutral, so the script
+    # produces correct native paths wherever it ultimately runs.  Lines are
+    # separated by newlines.
+    #
+    # Security: because the resulting text becomes executable script, the file
+    # names are decomposed into [file join] arguments rather than interpolated
+    # as raw strings; combined with the relative-path and depth validation
+    # performed by [getRelativeFileNames], this constrains what the embedded
+    # paths can express.  The inputs are nonetheless expected to be trusted
+    # local file names chosen by the operator, not arbitrary untrusted data.
+    #
+    # Arguments:
+    #   fileNames     -- A list of (preferably fully qualified) file names to
+    #                    encode into the script chunk.
+    #   maximumLevels -- The maximum allowed relative path depth, forwarded to
+    #                    getRelativeFileNames.
+    #
+    # Results:
+    #   A string containing zero or more newline-separated script lines, each
+    #   appending one file to the fileNames list variable.  A script error is
+    #   raised if getRelativeFileNames rejects any input.
+    # </help>
+
     set result ""
     set relativeFileNames [getRelativeFileNames $fileNames $maximumLevels]
 
@@ -426,6 +669,63 @@ namespace eval ::PackageUploader {
   #
   proc createRepositoryScript {
           serverId versionId language version platform fileNames options } {
+    # <help>
+    # This procedure generates the script block that the package repository
+    # server will store and later evaluate in order to download and provide a
+    # package consisting of a specific set of files.  It is the heart of "what
+    # gets registered" for a package: the returned script, when run by a
+    # client, requires the downloader package, optionally selects a particular
+    # server and version, resets and logs in to the repository, downloads the
+    # listed files for the given language, version, and platform, and then logs
+    # out.  It exists so that the uploader can publish a self-contained recipe
+    # for reproducing the package on demand.
+    #
+    # How it works: it validates the server identifier, the version identifier,
+    # and the language/version pair (the latter also reporting via the isClient
+    # variable whether this combination denotes the client itself).  A client
+    # language/version combination is rejected, because the client is not a
+    # downloadable package.  If a platform is supplied it is validated as well;
+    # platform auto-detection is intentionally NOT forced here so that the
+    # generated script can resolve the platform late, at the time it actually
+    # runs (allowing one published script to work across platforms when the
+    # platform argument is empty).  A prologue is assembled that, only when the
+    # corresponding identifiers are non-empty, calls [useServerId] and
+    # [useVersionId].  Finally a template script is produced by running [string
+    # map] to substitute the formatted language, version, and platform values
+    # (each passed through [formatStringMapValue] for safe quoting), the prologue,
+    # the downloader namespace, a backslash, and the file-appending chunk from
+    # [getScriptChunkForFileNames]; the assembled script is trimmed and returned.
+    #
+    # Security: the produced script enables OpenPGP verification by setting the
+    # usePgp option to true in the embedded download options, so files fetched
+    # by the generated script are subject to signature verification by the
+    # downloader.  The substituted values are validated and quoted before being
+    # placed into the script, and the carriage-return/newline normalization in
+    # the [string map] keeps line endings consistent.  Because the result is
+    # executable script that will run on clients, every substituted value must
+    # come from trusted, validated configuration and operator input.
+    #
+    # Arguments:
+    #   serverId  -- The identifier of the specific repository server to use,
+    #                or an empty string to use the default; validated.
+    #   versionId -- The identifier of the specific version to use, or an empty
+    #                string; validated.
+    #   language  -- Must be the literal string "eagle" or "tcl".
+    #   version   -- Must be "8.4", "8.5", "8.6", or "8.7" for Tcl, or "1.0"
+    #                for Eagle.
+    #   platform  -- An empty string (meaning resolve late or platform neutral)
+    #                or one of "neutral", "win32-arm", "win32-x86",
+    #                "win64-arm64", "win64-ia64", or "win64-x64".
+    #   fileNames -- The list of (preferably fully qualified) file names that
+    #                make up the package to be downloaded.
+    #   options   -- Reserved for future use; should be an empty list.
+    #
+    # Results:
+    #   The generated, trimmed repository script as a string.  A script error
+    #   is raised if any identifier, the language/version pair, or the platform
+    #   fails validation, or if the language/version denotes the client.
+    # </help>
+
     ::PackageRepository::verifyServerId $serverId
     ::PackageDownloader::verifyVersionId $versionId
     ::PackageDownloader::verifyLanguageAndVersion $language $version isClient
@@ -487,6 +787,42 @@ apply [list [list] {
   #       in the form body.  This procedure may not raise script errors.
   #
   proc createMultipartFormData { boundary request } {
+    # <help>
+    # This procedure serializes a dictionary of name/value pairs into a
+    # "multipart/form-data" request body, as described by RFC 2388.  It exists
+    # so that [submitPackageMetadata] can post a package's metadata (API key,
+    # name, patch level, language, provide script, and certificate) to the
+    # repository server using a standard HTTP form encoding.
+    #
+    # How it works: it iterates over the request dictionary two words at a time
+    # (name then value).  For each pair it writes a boundary delimiter line, a
+    # Content-Disposition header naming the form field, a blank line, and then
+    # the raw value, with the required carriage-return/newline separators.  If
+    # anything was written, it appends the closing boundary (the boundary
+    # followed by two dashes) that terminates the body.  Under Eagle, the
+    # assembled text is returned wrapped as an aliased String object so that it
+    # can be handed directly to the framework's upload machinery; under Tcl the
+    # plain string is returned.
+    #
+    # Tricky details: values are emitted verbatim with no escaping or content
+    # transfer encoding, so the caller is responsible for choosing a boundary
+    # that does not appear within any value (submitPackageMetadata derives the
+    # boundary from random data or a unique suffix to make collisions
+    # effectively impossible).  Field values may contain newlines (for example
+    # the provide script and certificate), which is permitted by the format.
+    #
+    # Arguments:
+    #   boundary -- The multipart boundary token (without leading dashes) used
+    #               to separate parts; must not occur inside any field value.
+    #   request  -- A dictionary (flat list of alternating name and value
+    #               words) of form fields to encode.  May be empty, in which
+    #               case an empty body is produced.
+    #
+    # Results:
+    #   The encoded multipart body: a String object under Eagle, or a plain
+    #   string under Tcl.  This procedure does not raise script errors.
+    # </help>
+
     set result ""
 
     foreach {name value} $request {
@@ -513,6 +849,30 @@ apply [list [list] {
   #       This procedure may raise script errors.
   #
   proc getSubmitUri {} {
+    # <help>
+    # This procedure computes the full HTTP request URI used to submit a new
+    # package's metadata to the package repository server.  It exists to keep
+    # the construction of the submission endpoint (base address plus the fixed
+    # query parameters that select the raw, submit-method behavior) in one
+    # place.
+    #
+    # How it works: it asks the repository package for the submission base URI.
+    # If that base URI is unavailable (an empty string), it returns an empty
+    # string so the caller can detect the failure without an exception.
+    # Otherwise it appends the standard query parameters that mark this as a
+    # raw submit request.  Under Eagle the query string is appended literally;
+    # under Tcl the http package is required and its formatQuery is used to
+    # encode the parameters.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The complete submission URI as a string, or an empty string if the base
+    #   URI could not be determined.  Although declared as possibly raising
+    #   script errors, the normal failure mode is the empty-string return.
+    # </help>
+
     #
     # NOTE: Fetch the base URI for the package repository server.  If it
     #       is not available for some reason, just return an empty string
@@ -554,6 +914,66 @@ apply [list [list] {
   #
   proc submitPackageMetadata {
           apiKey package patchLevel language script certificate } {
+    # <help>
+    # This procedure submits the metadata for a new package to the package
+    # repository server over HTTP.  The metadata bundles the API key(s) used to
+    # authenticate the submission, the package name and patch level, the
+    # language, the provide script (the repository script that clients will
+    # later run to obtain the package), and the certificate associated with
+    # that script.  It exists as the final network step of the upload flow,
+    # turning a locally prepared, signed provide script into a registered
+    # package on the server.
+    #
+    # How it works: it validates the package name and patch level, obtains the
+    # submission URI (raising an error if none is available), and defaults the
+    # language to the current engine's language when none is given before
+    # validating it.  A unique multipart boundary is generated (from random
+    # bytes under Eagle, or a unique suffix under Tcl) and the form body is
+    # built by [createMultipartFormData].  Under Eagle it additionally enforces
+    # several preconditions on the running library: the platform compile
+    # options must be present and must include both the TEST and NETWORK
+    # features, or the upload is refused; and it ensures a web-client callback
+    # is installed so the request's Content-Type header (the multipart type
+    # with the chosen boundary) can be set on the outgoing request.  The body is
+    # then posted via the engine's uri upload (or, under Tcl, via the
+    # repository helper that performs an HTTP POST).  Finally it parses the
+    # server's response code and result; an OK code yields the result string,
+    # while any other code raises a script error that includes the raw data.
+    #
+    # Security: this is a security-relevant procedure.  The apiKey is the
+    # caller's authentication secret to the repository and is transmitted in
+    # the form body, so the transport security of the submission URI matters.
+    # The certificate argument is the signature over the provide script (an
+    # OpenPGP signature, or a Harpy script certificate) that downstream clients
+    # rely on to establish trust in the script before executing it; this
+    # procedure transports that certificate but does NOT itself verify the
+    # signature or the script's contents, so trust is only as good as the
+    # signing performed earlier in the flow and the server's own validation.
+    # The TEST and NETWORK compile-option gate is a deliberate guard that
+    # confines uploading to library builds intended for it.  Field values are
+    # not escaped beyond the multipart framing, which is why a collision-
+    # resistant boundary is used.
+    #
+    # Arguments:
+    #   apiKey      -- The list of API key(s) authenticating the submission;
+    #                  must be present and non-empty for a successful upload.
+    #   package     -- The package name; validated.
+    #   patchLevel  -- The specific patch level being submitted; validated.
+    #   language    -- An empty string (assume the current language), "Tcl", or
+    #                  "Eagle"; validated after defaulting.
+    #   script      -- The provide/repository script to evaluate when the
+    #                  package must be delivered to a client.
+    #   certificate -- The certificate over the script (an OpenPGP signature or
+    #                  a Harpy script certificate) that clients use to trust it.
+    #
+    # Results:
+    #   On success, the server's result string (an empty string is possible) is
+    #   returned.  A script error is raised if validation fails, the submission
+    #   URI is unavailable, required Eagle compile options are missing, the web
+    #   client callback cannot be installed, or the server returns a non-OK
+    #   response code (the error message includes the raw response data).
+    # </help>
+
     variable verboseMetadataSubmit
 
     ::PackageDownloader::verifyPackageName $package
@@ -652,6 +1072,36 @@ apply [list [list] {
   #       the information cannot be determined.
   #
   proc getCheckoutId {} {
+    # <help>
+    # This procedure queries the current check-in identifier of the Fossil
+    # checkout that contains this script's directory.  It exists so that commit
+    # comments can record exactly which version of the client toolset performed
+    # an upload, providing provenance for staged packages.
+    #
+    # How it works: after confirming Fossil is installed, it runs the
+    # configured fossil info command against the script directory.  Under Eagle
+    # the directory is formatted as an exec argument and the command is run
+    # capturing standard output and error, which are concatenated; under Tcl
+    # the command is run directly.  If running Fossil fails, the empty string
+    # is returned.  The combined output is scanned line by line with the
+    # configured checkout pattern; on a match the captured check-in hash is
+    # trimmed and truncated to its first ten characters and returned.
+    #
+    # Tricky details: the command template is resolved with [subst] using the
+    # local "directory" variable, so it depends on the configuration variables
+    # set up by [setupUploadVars] being trustworthy.  The returned identifier is
+    # an abbreviated (ten character) prefix of the full hash, not the complete
+    # check-in hash.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The abbreviated current check-in identifier, or an empty string if
+    #   Fossil could not be run or its output did not match the expected
+    #   pattern.  May raise a script error only if Fossil is not installed.
+    # </help>
+
     variable fossilFileNameOnly
     variable fossilInfoCommand
     variable fossilInfoCheckoutPattern
@@ -695,6 +1145,35 @@ apply [list [list] {
   #       the information cannot be determined.
   #
   proc getCheckoutDirectory {} {
+    # <help>
+    # This procedure queries the root (local-root) directory of the Fossil
+    # checkout that contains this script's directory.  It exists so that
+    # [setupCheckoutVars] can discover where staged package files must be written
+    # without requiring the operator to specify the path manually.
+    #
+    # How it works: after confirming Fossil is installed, it runs the
+    # configured fossil info command against the script directory (capturing
+    # and concatenating output and error under Eagle, or running directly under
+    # Tcl).  If Fossil cannot be run, the empty string is returned.  The
+    # combined output is scanned line by line with the configured local-root
+    # pattern; on a match the captured directory path is trimmed and returned.
+    #
+    # Tricky details: like the other Fossil helpers, the command template is
+    # resolved with [subst] from configuration variables, so its behavior
+    # depends on those values being correctly set up.  This procedure reports
+    # what Fossil believes the checkout root to be; it does not itself verify
+    # that the directory exists or is valid (verifyCheckoutDirectory performs
+    # that separately).
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The checkout root directory as a string, or an empty string if Fossil
+    #   could not be run or its output did not match the expected pattern.  May
+    #   raise a script error only if Fossil is not installed.
+    # </help>
+
     variable fossilFileNameOnly
     variable fossilInfoCommand
     variable fossilInfoLocalRootPattern
@@ -737,6 +1216,26 @@ apply [list [list] {
   #       returns it.  All arguments are considered to be parts of the path.
   #
   proc joinPath { args } {
+    # <help>
+    # This procedure joins its arguments into a single path and returns it in
+    # the platform's native form.  It is a small convenience used when building
+    # example command lines for user-facing messages so that the displayed
+    # paths look correct for the current operating system.
+    #
+    # How it works: it expands its arguments through [file join] to assemble a
+    # path from the parts, then passes the result through [file nativename] to
+    # convert separators and form to the native convention.
+    #
+    # Arguments:
+    #   args -- Zero or more path parts.  Each part becomes one segment of the
+    #           joined path, following the usual [file join] semantics (an
+    #           absolute part resets the accumulated path).
+    #
+    # Results:
+    #   The joined path expressed in native form.  This procedure does not
+    #   raise script errors.
+    # </help>
+
     return [file nativename [eval file join $args]]
   }
 
@@ -747,6 +1246,35 @@ apply [list [list] {
   #       the checks fail.
   #
   proc verifyCheckoutDirectory {} {
+    # <help>
+    # This procedure verifies that the configured Fossil checkout directory is
+    # present, non-empty, and actually a directory on disk.  It exists as a
+    # precondition guard for the staging and committing operations, which must
+    # not proceed unless a real checkout is available to write into.
+    #
+    # How it works: it first prepares platform-appropriate example paths used
+    # only to build a helpful, multi-line guidance message that explains how to
+    # install Fossil and clone and open the package file server repository.  It
+    # then performs three checks against the checkoutDirectory namespace
+    # variable: that it exists, that it is not the empty string, and that it
+    # refers to an existing directory via [file isdirectory].  If any check
+    # fails, it raises a script error consisting of the guidance message with
+    # the specific problem substituted in.
+    #
+    # Tricky details: the example paths are constructed purely for display and
+    # are explicitly NOT used to touch the file system.  Only the final
+    # isdirectory check actually inspects the disk; the first two checks are
+    # about the variable's presence and content.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   No meaningful return value on success.  A script error (carrying the
+    #   guidance message) is raised if the checkout directory variable is
+    #   missing, empty, or does not name a real directory.
+    # </help>
+
     variable checkoutDirectory
 
     #
@@ -810,6 +1338,33 @@ apply [list [list] {
   #       raised if any problems are found.  The return value is undefined.
   #
   proc fossilMustBeInstalled {} {
+    # <help>
+    # This procedure verifies that a usable implementation of Fossil is
+    # installed and of a supported version.  It exists as the shared
+    # precondition for every operation in this package that shells out to
+    # Fossil, ensuring those operations fail early with a clear, actionable
+    # message rather than with cryptic exec errors.
+    #
+    # How it works: it runs the configured fossil version command (capturing
+    # output and error under Eagle, or running directly under Tcl).  If the
+    # command cannot be executed at all, it raises a script error containing a
+    # multi-line message describing how to download and install Fossil.  If the
+    # command runs but its output does not match the configured version
+    # pattern, it raises an error reporting an unknown or unsupported version.
+    #
+    # Tricky details: the version command and pattern are configuration
+    # variables (set by [setupUploadVars]), so the definition of "supported"
+    # comes from that configuration.  The command template is resolved with
+    # [subst]; it relies on the configured Fossil executable file name.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   No meaningful return value on success.  A script error is raised if
+    #   Fossil cannot be run or its reported version is not supported.
+    # </help>
+
     variable fossilFileNameOnly
     variable fossilVersionCommand
     variable fossilVersionPattern
@@ -856,6 +1411,35 @@ apply [list [list] {
   #       is returned if the verification is successful.
   #
   proc verifyThereAreNoChanges {} {
+    # <help>
+    # This procedure verifies that the Fossil checkout has no pending (stray)
+    # changes before files are staged.  It exists to protect the upload process
+    # from committing unrelated, uncommitted local modifications along with the
+    # package files, which would corrupt the integrity of what gets published.
+    #
+    # How it works: after confirming Fossil is installed and the checkout
+    # directory is valid, it runs the configured fossil changes command against
+    # the checkout directory (capturing output and error under Eagle, or
+    # running directly under Tcl).  If the command cannot be run, it returns
+    # false.  The output is then tested against the configured changes pattern,
+    # which is normally written to match only an empty result; a match means
+    # the checkout is clean.
+    #
+    # Tricky details: a clean checkout is indicated when the output MATCHES the
+    # pattern (the default pattern matches the empty string), so the boolean is
+    # not inverted.  Any failure to run Fossil or any unexpected output is
+    # treated conservatively as "not verified" by returning false.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Non-zero (true) if the checkout is verified to have no pending changes;
+    #   false if changes are present or the check could not be performed.  May
+    #   raise a script error via its preconditions (Fossil installed and a
+    #   valid checkout directory).
+    # </help>
+
     variable checkoutDirectory
     variable fossilChangesCommand
     variable fossilChangesPattern
@@ -900,6 +1484,37 @@ apply [list [list] {
   #       is returned if the verification is successful.
   #
   proc verifyThisIsTheCorrectProject {} {
+    # <help>
+    # This procedure verifies that the Fossil checkout belongs to the expected
+    # project, identified by the configured project code.  It exists as a
+    # safety check so that the uploader never stages or commits package files
+    # into the wrong repository, which could publish files to an unintended
+    # destination.
+    #
+    # How it works: after confirming Fossil is installed, it runs the
+    # configured fossil info command against the script directory (capturing
+    # output and error under Eagle, or running directly under Tcl).  If the
+    # command cannot be run, it returns false.  The output is matched, line by
+    # line, against the configured project-code pattern after that pattern is
+    # itself resolved with [subst] so the expected projectCode value is
+    # interpolated into it; a match confirms the correct project.
+    #
+    # Security: this is one of the gating checks (alongside the clean-changes
+    # and correct-branch checks) that [stagePackageFiles] requires before doing
+    # any work.  Its reliability depends on the projectCode and the pattern
+    # being trustworthy configuration; if a settings file could alter those, it
+    # could alter what counts as the "correct" project.  Any failure to run
+    # Fossil or to match is treated conservatively as not verified (false).
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Non-zero (true) if the checkout is verified to belong to the expected
+    #   project; false otherwise or if the check could not be performed.  May
+    #   raise a script error only if Fossil is not installed.
+    # </help>
+
     variable fossilFileNameOnly
     variable fossilInfoCommand
     variable fossilInfoProjectCodePattern
@@ -944,6 +1559,33 @@ apply [list [list] {
   #       is returned if the verification is successful.
   #
   proc verifyThisIsTheCorrectBranch {} {
+    # <help>
+    # This procedure verifies that the Fossil checkout is currently sitting on
+    # the correct (trunk) branch.  It exists so that the uploader stages and
+    # commits package files only from the intended branch, and so that
+    # [stagePackageFiles] can decide whether it must switch branches first.
+    #
+    # How it works: after confirming Fossil is installed, it runs the
+    # configured fossil info command against the script directory (capturing
+    # output and error under Eagle, or running directly under Tcl).  If the
+    # command cannot be run, it returns false.  The output is matched line by
+    # line against the configured tags pattern, which is written to detect the
+    # trunk tag; a match confirms the correct branch.
+    #
+    # Tricky details: a failure to run Fossil or to match is conservatively
+    # reported as false rather than as an error.  Callers (stagePackageFiles)
+    # use a false result as the trigger to attempt a branch change and then
+    # re-verify.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Non-zero (true) if the checkout is verified to be on the correct
+    #   branch; false otherwise or if the check could not be performed.  May
+    #   raise a script error only if Fossil is not installed.
+    # </help>
+
     variable fossilFileNameOnly
     variable fossilInfoCommand
     variable fossilInfoTagsPattern
@@ -987,6 +1629,32 @@ apply [list [list] {
   #       script errors.
   #
   proc changeToTheCorrectBranch {} {
+    # <help>
+    # This procedure switches the Fossil checkout to the correct (trunk)
+    # branch.  It exists so that, when [verifyThisIsTheCorrectBranch] reports the
+    # checkout is on the wrong branch, the uploader can attempt to correct that
+    # automatically before staging files.
+    #
+    # How it works: after confirming Fossil is installed and the checkout
+    # directory is valid, it runs the configured fossil update command (which
+    # targets trunk) against the checkout directory.  Under Eagle the directory
+    # is formatted as an exec argument and the command is run requiring a
+    # Success result; under Tcl it is run directly.  If the update fails, a
+    # script error is raised that includes the underlying error text.
+    #
+    # Tricky details: this performs a real, mutating Fossil operation on the
+    # working checkout (it can move the checkout's files to the branch tip), so
+    # it is only called when a branch change is actually needed.  Callers
+    # re-verify the branch afterward rather than trusting success blindly.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   No meaningful return value on success.  A script error is raised if the
+    #   preconditions fail or the branch update command does not succeed.
+    # </help>
+
     variable checkoutDirectory
     variable fossilFileNameOnly
     variable fossilUpdateCommand
@@ -1024,6 +1692,37 @@ apply [list [list] {
   #       script errors.
   #
   proc stageOnePackageFile { targetDirectory fileName } {
+    # <help>
+    # This procedure stages (adds) a single file into the Fossil checkout so
+    # that it will be included in a subsequent commit.  It exists as the
+    # low-level building block used by [stagePackageFiles] to register each
+    # package file (and each of its companion signature/certificate files) with
+    # Fossil.
+    #
+    # How it works: after confirming Fossil is installed, it runs the
+    # configured fossil add command for the given file within the given target
+    # directory.  Under Eagle both the directory and the file name are
+    # formatted as exec arguments and the command is run requiring a Success
+    # result; under Tcl it is run directly.  If the add fails, a script error
+    # is raised that names the file and includes the underlying error text.
+    #
+    # Tricky details: the file name is expected to be relative to the target
+    # directory (the working area inside the checkout), and the command
+    # template is resolved with [subst] from the configuration.  This mutates
+    # the checkout's staging state; the actual commit happens later in
+    # [commitPackageFiles].
+    #
+    # Arguments:
+    #   targetDirectory -- The fully qualified path to the package platform
+    #                      directory within the checkout that the file lives in.
+    #   fileName        -- The name (relative to targetDirectory) of the file
+    #                      to stage.
+    #
+    # Results:
+    #   No meaningful return value on success.  A script error is raised if
+    #   Fossil is not installed or the add command fails.
+    # </help>
+
     variable fossilAddCommand
     variable fossilFileNameOnly
 
@@ -1059,6 +1758,55 @@ apply [list [list] {
   #       local file names to stage.
   #
   proc stagePackageFiles { language version platform fileNames } {
+    # <help>
+    # This procedure copies a set of local package files into the correct
+    # location within the Fossil checkout, cryptographically signs them, and
+    # stages all of the resulting files for commit.  It is the core "prepare
+    # the package for publication" step and is responsible for producing the
+    # signatures and certificates that downstream clients rely on to trust the
+    # package's contents.
+    #
+    # How it works: it validates the language/version pair (refusing to operate
+    # for the client) and the platform, verifies the checkout directory, and
+    # then enforces three repository preconditions: the checkout must have no
+    # pending changes, must belong to the correct project, and must be on the
+    # correct branch.  If it is on the wrong branch it calls
+    # [changeToTheCorrectBranch] and re-verifies, erroring if the branch is still
+    # wrong.  It computes the target directory under the checkout
+    # (packages/language/version/platform) and the relative file names (capped
+    # at two levels of depth).  For each file it creates any needed
+    # subdirectory, copies the file into the checkout, and then signs it.
+    #
+    # Security (critical): every staged file receives a detached OpenPGP
+    # signature (the .asc companion); if signing fails the whole operation
+    # errors out, so no file is published unsigned.  In addition, Eagle source
+    # files (those with a .eagle or .eeagle extension) receive a Harpy script
+    # certificate (the .harpy companion), and that certificate itself is then
+    # OpenPGP signed (the .harpy.asc companion).  This layered signing is what
+    # lets clients verify both the authenticity of the file (OpenPGP) and the
+    # authorization to execute Eagle script (Harpy) before running it.  The
+    # signatures are produced over the copies inside the checkout, and each of
+    # the file, its .asc, and (for Eagle files) the .harpy and .harpy.asc are
+    # staged via [stageOnePackageFile] so they are committed together.  The
+    # depth cap and the relative-name validation constrain where files may be
+    # written within the checkout.  The trust of the published package eventually
+    # rests on the secrecy and correctness of the OpenPGP and Harpy signing
+    # keys used here.
+    #
+    # Arguments:
+    #   language  -- The package language; validated, and must not denote the
+    #                client.
+    #   version   -- The language version; validated together with language.
+    #   platform  -- The target platform; validated.
+    #   fileNames -- The list of (preferably fully qualified) local file names
+    #                to stage.  Their relative depth must not exceed two levels.
+    #
+    # Results:
+    #   No meaningful return value on success.  A script error is raised if any
+    #   validation, precondition, branch change, file copy, or signing step
+    #   fails (signing failures are reported explicitly per file).
+    # </help>
+
     variable checkoutDirectory
     variable fossilAddCommand
     variable fossilFileNameOnly
@@ -1145,6 +1893,51 @@ apply [list [list] {
   #       caller that will receive the resulting Fossil check-in identifier.
   #
   proc commitPackageFiles { package patchLevel language version varName } {
+    # <help>
+    # This procedure commits the previously staged package files to the remote
+    # package file repository using Fossil, creating a dedicated branch for the
+    # package and patch level.  It is the publication step that durably records
+    # the staged, signed files (from [stagePackageFiles]) into the shared
+    # repository.
+    #
+    # How it works: it validates the package name and patch level and the
+    # (lowercased) language/version pair, refusing to operate for the client.
+    # After confirming Fossil is installed and the checkout directory is valid,
+    # it derives a branch name of the form that incorporates the package name
+    # and patch level, and a human-readable commit comment that names the
+    # package, patch level, language, version, and the abbreviated client
+    # check-in identifier from [getCheckoutId].  It then runs the configured
+    # fossil commit command (under Eagle the directory, branch, and comment are
+    # formatted as exec arguments and output and error are captured; under Tcl
+    # the command is run directly).  If the commit cannot be run, it returns
+    # false.  The output is scanned with the configured commit pattern to
+    # extract the resulting check-in identifier.
+    #
+    # Tricky details: the caller may receive the new check-in identifier
+    # through the optional varName argument, which is linked with [upvar 1] to
+    # a scalar in the caller's frame and set only when the commit succeeds and
+    # the pattern matches.  Embedding the client check-in id in the comment
+    # provides provenance for who/what produced the commit.  This is a mutating
+    # operation that creates a real commit on a new branch in the shared
+    # repository.
+    #
+    # Arguments:
+    #   package    -- The package name; validated.
+    #   patchLevel -- The patch level being committed; validated.
+    #   language   -- The language; lowercased for validation and included in
+    #                 the commit comment.
+    #   version    -- The language version; validated with the language.
+    #   varName    -- Optional name of a scalar variable in the immediate
+    #                 caller's frame to receive the resulting Fossil check-in
+    #                 identifier.  An empty string means do not report it.
+    #
+    # Results:
+    #   Non-zero (true) if the commit succeeded and a check-in identifier was
+    #   extracted (and stored into varName when provided); false if the commit
+    #   command could not be run or its output did not match.  A script error
+    #   is raised if validation or the Fossil/checkout preconditions fail.
+    # </help>
+
     variable checkoutDirectory
     variable fossilCommitCommand
     variable fossilCommitPattern
@@ -1213,6 +2006,41 @@ apply [list [list] {
   #
   # <internal>
   proc setupArgumentData { argv } {
+    # <help>
+    # This procedure initializes the argumentData array, which holds the values
+    # that drive a package submission, optionally seeding it from the command
+    # line arguments.  It exists so that the tool can be driven either from the
+    # command line (batch use) or from the user interface, with a single,
+    # consistent data structure backing both.
+    #
+    # How it works: it first ensures every expected field exists, defaulting
+    # each scalar field (server id, API key, package, patch level, language,
+    # version, platform) to the empty string and the fileNames field to the
+    # empty list if not already present, so existing values are preserved.  It
+    # then maps positional command line arguments onto those fields in order:
+    # argument one becomes the server id, two the API key, three the package,
+    # four the patch level, five the language, six the version, seven the
+    # platform, and any arguments from the eighth onward become the list of
+    # file names.  Each assignment is guarded by an argument-count check, so
+    # providing fewer arguments simply leaves the later fields at their
+    # defaults.
+    #
+    # Tricky details: the file names field collects all trailing arguments
+    # (eighth through last) as a list, so multiple files can be supplied on the
+    # command line.  Because pre-existing values are not cleared, calling this
+    # after fields are already populated only fills in missing fields and
+    # overrides those for which an argument is present.
+    #
+    # Arguments:
+    #   argv -- The list of command line arguments to seed the fields from.
+    #           May be empty, in which case only the defaulting of missing
+    #           fields occurs.
+    #
+    # Results:
+    #   No meaningful return value.  This procedure does not raise script
+    #   errors.
+    # </help>
+
     variable argumentData
 
     if {![info exists argumentData(serverId)]} then {
@@ -1288,6 +2116,36 @@ apply [list [list] {
   #
   # <internal>
   proc haveArgumentData {} {
+    # <help>
+    # This procedure reports whether every piece of data required to perform a
+    # package submission is present in the argumentData array.  It exists as
+    # the gate that the submit handler checks before attempting an upload, so
+    # that submission is only initiated once all mandatory fields are filled
+    # in.
+    #
+    # How it works: it inspects each field of the argumentData array in turn,
+    # returning false at the first one that is missing or empty.  The required
+    # fields are the API key, package, patch level, language, version, and
+    # platform (each must exist and be non-empty) and the fileNames list (which
+    # must exist and contain at least one element).  The server id is treated
+    # specially: while its existence is checked, an empty server id is
+    # intentionally accepted (an empty value means "use the default server"),
+    # as documented by the commented-out emptiness check.
+    #
+    # Tricky details: the deliberate allowance of an empty serverId is the one
+    # asymmetry; every other scalar field must be non-empty.  This procedure
+    # only checks for presence and non-emptiness, not for validity (validation
+    # of individual values happens later during the actual submission).
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Non-zero (true) if all required submission data is present; false if
+    #   any required field is missing or empty.  This procedure does not raise
+    #   script errors.
+    # </help>
+
     variable argumentData
 
     if {![info exists argumentData(serverId)]} then {
@@ -1371,6 +2229,31 @@ apply [list [list] {
   #       necessary to process the event.
   #
   proc textBoxEventHandler { varName sender e } {
+    # <help>
+    # This procedure is an event handler that synchronizes the contents of a
+    # text box into a named variable whenever the text box changes.  It exists
+    # for the WinForms (Eagle) user interface, where text boxes do not bind
+    # directly to a variable the way Tk entry widgets do, so a TextChanged
+    # handler is used to keep the backing argumentData field current.
+    #
+    # How it works: it reads the Text property of the sender control and stores
+    # it into the variable whose name was supplied as varName, using the set
+    # command with a computed variable name.  It is wired up with a
+    # pre-bound varName so the framework only supplies the sender and event
+    # arguments.
+    #
+    # Arguments:
+    #   varName -- The fully qualified name of the scalar variable to update
+    #              with the text box contents (typically an argumentData field).
+    #   sender  -- The text box control that raised the event; its Text
+    #              property is read.
+    #   e       -- The event arguments supplied by the framework; not used.
+    #
+    # Results:
+    #   No meaningful return value.  This procedure does not normally raise
+    #   script errors.
+    # </help>
+
     set $varName [$sender Text]
   }
 
@@ -1385,6 +2268,39 @@ apply [list [list] {
   #       necessary to process the event.
   #
   proc listBoxEventHandler { varName args } {
+    # <help>
+    # This procedure is an event handler for a double-click on the file list
+    # box, in both the Eagle (WinForms) and Tcl (Tk) user interfaces.  It lets
+    # the operator pick the package files to submit through a native file
+    # picker dialog and records the selection into a named variable.
+    #
+    # How it works: under Eagle it extracts the sender control and event from
+    # the trailing args, opens a multi-select OpenFileDialog, reads back the
+    # chosen file names, replaces the list box contents with them, and stores
+    # the selection (converted to a list string) into the named variable.
+    # Under Tcl it simply invokes tk_getOpenFile with multiple selection
+    # enabled and stores the result into the named variable.  In both cases the
+    # named variable is the argumentData fileNames field.
+    #
+    # Tricky details: the args parameter exists to absorb the differing event
+    # signatures of the two toolkits; under Eagle the first two elements are
+    # the control and event data, while under Tk no such arguments are passed.
+    # The Eagle path explicitly clears and repopulates the on-screen list box
+    # because, unlike Tk, it has no list-variable binding that would update the
+    # widget automatically.
+    #
+    # Arguments:
+    #   varName -- The fully qualified name of the variable to receive the
+    #              selected file names (the argumentData fileNames field).
+    #   args    -- Toolkit-supplied event arguments; under Eagle the first is
+    #              the sender control and the second is the event data, under
+    #              Tk it is unused.
+    #
+    # Results:
+    #   No meaningful return value.  May raise script errors arising from the
+    #   underlying dialog or object operations.
+    # </help>
+
     if {[isEagle]} then {
       set sender [lindex $args 0]
       set e [lindex $args 1]
@@ -1416,6 +2332,30 @@ apply [list [list] {
   #       raise script errors.
   #
   proc handleFormClosedEvent { args } {
+    # <help>
+    # This procedure is an event handler for the window-closed event: the
+    # Closed event of a WinForms form under Eagle, or the WM_DELETE_WINDOW
+    # protocol on a Tk toplevel under Tcl.  It exists to cleanly tear down the
+    # user interface and release the program's main event loop so the tool can
+    # exit.
+    #
+    # How it works: under Eagle it extracts the sender and event from args
+    # (both captured so their object handles are disposed), and under Tcl it
+    # destroys the toplevel window recorded in the widgets array.  In both
+    # cases it then sets the namespace "forever" variable to a value, which is
+    # what an outstanding [vwait] elsewhere is waiting on; assigning it
+    # terminates that wait and allows the program to proceed to shutdown.
+    #
+    # Arguments:
+    #   args -- A portability placeholder for the differing toolkit event
+    #           signatures; under Eagle the first two elements are the sender
+    #           and event, under Tk it is unused.
+    #
+    # Results:
+    #   No meaningful return value.  May raise script errors from the window
+    #   destruction under Tk.
+    # </help>
+
     if {[isEagle]} then {
       set sender [lindex $args 0]; # NOTE: Disposal.
       set e [lindex $args 1]; # NOTE: Disposal.
@@ -1438,6 +2378,55 @@ apply [list [list] {
   #
   # <internal>
   proc submitEventHandler { args } {
+    # <help>
+    # This procedure is the submit-button event handler and the top-level
+    # driver of the entire package submission process, for both the Tk and
+    # Eagle user interfaces (and for batch use).  It ties together staging,
+    # signing, repository-script generation, and metadata submission into one
+    # operation triggered when the operator chooses to submit.
+    #
+    # How it works: it reads a batch-mode flag from the first argument (and,
+    # under Eagle, captures the sender and event for disposal).  It proceeds
+    # only if [haveArgumentData] confirms all required fields are present;
+    # otherwise it raises an error.  It pulls the server id, API key, package,
+    # patch level, language, version, platform, and file names from
+    # argumentData, then probes for and requires an OpenPGP installation.  It
+    # stages the files (stagePackageFiles, which copies and signs them) and
+    # commits them (commitPackageFiles), erroring if the commit fails.  It
+    # decides whether the repository script should treat the platform as
+    # automatic (empty) when the platform is neutral or matches the current
+    # platform.  It generates the repository provide script
+    # (createRepositoryScript), writes it to a uniquely named temporary file,
+    # OpenPGP signs that file, reads the resulting detached signature as the
+    # certificate, and submits the script plus certificate as package metadata
+    # (submitPackageMetadata).  Unless in batch mode, it shows a success
+    # message box (WinForms) or dialog (Tk).
+    #
+    # Security (critical): this handler is where trust is established for the
+    # published package.  It requires OpenPGP to be installed before doing any
+    # work.  The package files are signed during staging, and the generated
+    # provide script (the very script clients will execute to fetch the
+    # package) is itself OpenPGP signed here; the detached signature is sent as
+    # the certificate so the server and clients can verify the script's
+    # authenticity before trusting it.  If signing of the script fails, the
+    # whole submission errors out, so an unsigned script is never submitted.
+    # The temporary script file is created in a tool-specific temp directory
+    # with a unique suffix.  The API key (an authentication secret) flows
+    # through to [submitPackageMetadata].  The integrity of the publication thus
+    # depends on the OpenPGP and Harpy signing keys and on the security of the
+    # transport used by [submitPackageMetadata].
+    #
+    # Arguments:
+    #   args -- A portability placeholder.  The first element is the batch-mode
+    #           boolean (true suppresses the success dialog); under Eagle the
+    #           second and third elements are the sender and event (disposed).
+    #
+    # Results:
+    #   No meaningful return value on success.  A script error is raised if the
+    #   submission data is incomplete, OpenPGP is not installed, staging,
+    #   committing, script signing, or metadata submission fails.
+    # </help>
+
     variable argumentData
 
     set batchMode [lindex $args 0]
@@ -1539,6 +2528,36 @@ apply [list [list] {
   #       raise script errors.
   #
   proc clearEventHandler { args } {
+    # <help>
+    # This procedure is the clear-button event handler for both the Tk and
+    # Eagle user interfaces.  It resets the package submission data, giving the
+    # operator a quick way to empty all the input fields and the file list.
+    #
+    # How it works: under Eagle it captures the sender and event for disposal,
+    # then clears each on-screen widget by setting the text boxes to empty
+    # strings and clearing the file list box's items.  Under Tk it instead
+    # empties the corresponding argumentData scalar fields (server id, API key,
+    # package, patch level, language, version, platform); because the Tk
+    # widgets are bound to those variables via -textvariable, clearing the
+    # variables also clears the widgets.  In both cases it finally resets the
+    # argumentData fileNames field to the empty list.
+    #
+    # Tricky details: the divergence reflects a toolkit difference noted in the
+    # code.  Under Tk the scalar fields are cleared (the bound widgets follow),
+    # while under Eagle the widgets are cleared directly because there is no
+    # equivalent list-variable binding; the fileNames list must be reset
+    # explicitly in the Eagle case since clearing the on-screen list box does
+    # not affect the underlying list.
+    #
+    # Arguments:
+    #   args -- A portability placeholder; under Eagle the first two elements
+    #           are the sender and event (disposed), under Tk it is unused.
+    #
+    # Results:
+    #   No meaningful return value.  This procedure does not normally raise
+    #   script errors.
+    # </help>
+
     variable argumentData
 
     if {[isEagle]} then {
@@ -1581,6 +2600,38 @@ apply [list [list] {
   #
   # <internal>
   proc setupWinFormsUserInterface {} {
+    # <help>
+    # This procedure builds the graphical user interface for the tool using
+    # Eagle and WinForms.  It exists to provide an interactive way (on .NET
+    # platforms) to enter the submission fields, pick files, and trigger or
+    # clear a submission, pre-populated from any existing argument data.
+    #
+    # How it works: it loads the System.Windows.Forms assembly and creates a
+    # Form, recording each created control in the widgets array.  It adds a
+    # labeled text box for each scalar field (server id, API key, package name,
+    # patch level, language, version, platform), wiring each text box's
+    # TextChanged event to [textBoxEventHandler] so edits flow back into the
+    # corresponding argumentData field, and seeding each from the current
+    # argumentData value.  It adds a list box for files whose DoubleClick event
+    # is wired to [listBoxEventHandler] (the file picker), plus Submit and Clear
+    # buttons wired to [submitEventHandler] (non-batch) and [clearEventHandler].
+    # It then lays out all controls vertically with computed margins, shows the
+    # form, and schedules a no-op via [after] so that a later [vwait] has an
+    # event to service.
+    #
+    # Tricky details: the form's Closed event is bound to [handleFormClosedEvent],
+    # which releases the main loop.  Widget zero is the form itself and is
+    # skipped during the control layout pass.  The submit button passes false
+    # for batch mode so that a success dialog is shown.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   No meaningful return value.  May raise script errors arising from
+    #   assembly loading or object/control operations.
+    # </help>
+
     variable argumentData
     variable widgets
 
@@ -1783,6 +2834,41 @@ apply [list [list] {
   #
   # <internal>
   proc setupTkUserInterface {} {
+    # <help>
+    # This procedure builds the graphical user interface for the tool using Tcl
+    # and Tk.  It is the Tk counterpart of [setupWinFormsUserInterface], giving
+    # operators running under Tcl an interactive way to enter the submission
+    # fields, pick files, and submit or clear, with the fields bound directly
+    # to the argumentData array.
+    #
+    # How it works: it requires the Tk package, shows the console, and
+    # withdraws the default root window.  It creates a dedicated toplevel
+    # window (recorded in the widgets array), sets its title and minimum size,
+    # and binds the window-manager delete protocol to [handleFormClosedEvent].
+    # It then creates a label and an entry for each scalar field (server id,
+    # API key, package, patch level, language, version, platform), with each
+    # entry bound via -textvariable to the corresponding argumentData field so
+    # edits update the data automatically.  It creates a labeled list box bound
+    # via -listvariable to the fileNames field with a double-click binding to
+    # [listBoxEventHandler] (the file picker), and Submit and Clear buttons wired
+    # to [submitEventHandler] (non-batch) and [clearEventHandler].  Finally it packs
+    # all of the widgets.
+    #
+    # Tricky details: unlike the Eagle path, Tk's -textvariable and
+    # -listvariable bindings keep the widgets and the argumentData fields in
+    # sync without explicit event handlers for value changes, which is why the
+    # clear handler manipulates the variables rather than the widgets in this
+    # toolkit.  The Submit button passes false for batch mode so a success
+    # dialog is shown.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   No meaningful return value.  May raise script errors arising from Tk
+    #   package loading or widget creation.
+    # </help>
+
     variable widgets
 
     package require Tk

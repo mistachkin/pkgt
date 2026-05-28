@@ -27,6 +27,45 @@ namespace eval ::PackageUploader {
   #       emit the command line usage information.
   #
   proc usage { {error ""} } {
+    # <help>
+    # This procedure reports a fatal usage error for the package upload tool
+    # and then terminates the process.  It exists to give the operator a clear,
+    # consistent message when the tool cannot proceed and to print the
+    # canonical command line syntax, which lists every field the uploader
+    # understands.  It is the single "give up and explain how to use me" exit
+    # point for this tool, and is also the failure handler invoked when the
+    # interactive (Tk or WinForms) user interface cannot be created.
+    #
+    # How it works: if a non-empty error string is supplied, it is written to
+    # the standard output channel first.  It then prints a usage line built
+    # from the tail of the running executable name and the tail of the current
+    # script name, followed by the full argument template: serverId, apiKey,
+    # package, patchLevel, language, version, platform, and one or more file
+    # names.  All of these are shown as optional because, when some are omitted,
+    # the tool falls back to an interactive graphical interface to collect the
+    # remaining values rather than failing outright.  Finally it calls
+    # [exit 1], so this procedure never returns; the process ends with a
+    # non-zero (failure) status.
+    #
+    # SECURITY: the displayed template documents that an API key is one of the
+    # accepted arguments; this key authorizes uploads to the package server.
+    # Because this message is printed to standard output, callers should avoid
+    # passing secret material (such as the API key value itself) as the error
+    # string, since it would be echoed to the console.  The actual upload --
+    # including any signing and authentication -- is performed by the uploader
+    # package; this procedure only reports errors and exits.
+    #
+    # Arguments:
+    #   error -- Optional.  A specific error message to print before the usage
+    #            text (for example, the captured error from a failed attempt to
+    #            build the graphical user interface).  When omitted or empty,
+    #            only the usage text is printed.
+    #
+    # Results:
+    #   Does not return; the process is terminated via [exit 1] with a failure
+    #   exit status.
+    # </help>
+
     if {[string length $error] > 0} then {puts stdout $error}
 
     puts stdout "usage:\

@@ -25,6 +25,35 @@ namespace eval ::PackageDownloader {
   #       log.  The string argument is the content of the message to emit.
   #
   proc pkgLog { string } {
+    # <help>
+    # This procedure emits a single diagnostic message to the package
+    # downloader client log.  It exists to give every other procedure in the
+    # toolset a uniform, fire-and-forget way to record progress, warnings, and
+    # errors without having to worry about formatting or about logging itself
+    # failing.  It is used throughout the download, verify, and install paths
+    # for tracing and troubleshooting.
+    #
+    # How it works: it builds a single log line by prefixing the caller's
+    # message with the current process id, the current wall-clock time (in
+    # seconds since the epoch), and a fixed "pkgd" tag, then hands that line to
+    # [tclLog].  The entire operation is wrapped in [catch] so that a logging
+    # failure (for example, a redefined or unavailable [tclLog]) can never
+    # propagate an error back into the calling code.
+    #
+    # Tricky details: because the work is swallowed by [catch], a caller can
+    # never tell whether the message was actually recorded; logging is treated
+    # as strictly best-effort.  The timestamp is a raw epoch second count, not
+    # a formatted date.
+    #
+    # Arguments:
+    #   string -- The content of the message to emit.  It is logged verbatim
+    #             after the standard prefix; it may be any string.
+    #
+    # Results:
+    #   The result is unspecified and should be ignored; this procedure is
+    #   invoked purely for its logging side effect.
+    # </help>
+
     catch {
       tclLog [appendArgs [pid] " : " [clock seconds] " : pkgd : " $string]
     }
@@ -37,6 +66,42 @@ namespace eval ::PackageDownloader {
   #       set back to their default values.
   #
   proc setupDownloadServerVars { force } {
+    # <help>
+    # This procedure establishes the default values for all of the URN (Uniform
+    # Resource Name) configuration parameters used by the package downloader
+    # client.  These URNs name the server-side endpoints, relative to the base
+    # URI, for downloading package signing keys (primary and fallback mirror),
+    # logging in, querying supported platforms, downloading package files, and
+    # logging out.  It exists so that the toolset has a known-good starting
+    # configuration that an optional settings file or the [useServerId]
+    # procedure can later override.
+    #
+    # How it works: for each configuration item it declares the corresponding
+    # namespace variable and then, only if the force flag is true or the
+    # variable does not yet exist, assigns it the documented default value.
+    # This "set only if forced or missing" pattern is what allows previously
+    # customized values (for example, from a settings file read earlier) to
+    # survive a non-forced call.
+    #
+    # Tricky/security details: these URNs ultimately determine which server
+    # endpoints the client contacts for keys, login, and package data.  The
+    # prefixes assigned here (for example, the package-keys and download URNs)
+    # are duplicated, by necessity, in [useServerId]; the two MUST be kept
+    # synchronized or alternate-server selection will target the wrong
+    # endpoints.  This procedure does not itself contact the network or
+    # validate the URNs.
+    #
+    # Arguments:
+    #   force -- A boolean.  When true, every URN variable is reset to its
+    #            built-in default, discarding any prior value.  When false,
+    #            only variables that do not already exist are initialized,
+    #            preserving existing customizations.
+    #
+    # Results:
+    #   The result is unspecified; the procedure is invoked for its side effect
+    #   of populating the namespace URN configuration variables.
+    # </help>
+
     #
     # NOTE: The URN, relative to the base URI, where the Package Signing Keys
     #       may be downloaded.
@@ -106,6 +171,32 @@ namespace eval ::PackageDownloader {
   #       overwritten and set back to their default values.
   #
   proc setupDownloadVersionVars { force } {
+    # <help>
+    # This procedure establishes the default values for the version-related
+    # configuration parameters used by the package downloader client.  At
+    # present this is just the source branch name (defaulting to "trunk") from
+    # which package files are fetched.  It exists so that the version/branch
+    # selection has a known default that the [useVersionId] procedure or a
+    # settings file can later override.
+    #
+    # How it works: it declares the branch-name namespace variable and assigns
+    # it the default value only when the force flag is true or the variable
+    # does not already exist, leaving any prior customization intact otherwise.
+    #
+    # Tricky details: the branch name effectively chooses which revision of the
+    # package files is downloaded; changing it changes what content the client
+    # retrieves.
+    #
+    # Arguments:
+    #   force -- A boolean.  When true, the branch-name variable is reset to its
+    #            built-in default.  When false, it is initialized only if it
+    #            does not already exist.
+    #
+    # Results:
+    #   The result is unspecified; the procedure is invoked for its side effect
+    #   of populating the version configuration variable.
+    # </help>
+
     #
     # NOTE: The name of the branch where the package files should be fetched
     #       from.
@@ -124,6 +215,45 @@ namespace eval ::PackageDownloader {
   #       set back to their default values.
   #
   proc setupDownloadUriVars { force } {
+    # <help>
+    # This procedure establishes the default values for all of the URI
+    # configuration parameters used by the package downloader client.  This
+    # includes the base URI of the package file server (defaulting to an
+    # HTTPS endpoint) and the templated URIs for downloading signing keys (and
+    # a fallback mirror), logging in, querying platforms, downloading package
+    # files, and logging out.  It exists to define, in one place, exactly how
+    # each request URI is composed from the base URI, the configured URNs, and
+    # the relevant runtime values.
+    #
+    # How it works: for each URI item it declares the corresponding namespace
+    # variable and assigns it the default only when force is true or the
+    # variable is missing.  Importantly, most of the assigned values are NOT
+    # final URIs; they are brace-quoted template strings containing references
+    # such as the base-URI variable, a URN variable, and bracketed calls to
+    # [uriEscape].  These templates are deliberately stored unevaluated so that
+    # a later [subst] (performed by the consuming procedure, in a context where
+    # the referenced variables like user name, password, file name, or auth
+    # token are visible) expands them into the actual request URI.
+    #
+    # Tricky/security details: because the templates are expanded later via
+    # [subst], any value interpolated into them (login credentials, file names,
+    # auth tokens) is the thing that ends up in the request.  The login and
+    # logout templates pass their values through [uriEscape] for query-string
+    # safety; callers that bypass this and build URIs by other means lose that
+    # protection.  The default base URI is HTTPS, which is relied upon for
+    # transport confidentiality of credentials and cookies.  This procedure
+    # does not perform any network access or validation.
+    #
+    # Arguments:
+    #   force -- A boolean.  When true, every URI variable is reset to its
+    #            built-in default template.  When false, only variables that do
+    #            not already exist are initialized, preserving customizations.
+    #
+    # Results:
+    #   The result is unspecified; the procedure is invoked for its side effect
+    #   of populating the namespace URI configuration variables.
+    # </help>
+
     #
     # NOTE: The base URI used to build the URIs for the package file server.
     #
@@ -208,6 +338,51 @@ namespace eval ::PackageDownloader {
   #       being evaluated.
   #
   proc setupDownloadVars { script force } {
+    # <help>
+    # This procedure establishes the default values for the broad set of
+    # general configuration parameters used by the package downloader client
+    # that are not specifically URNs, URIs, or version selectors.  Among other
+    # things it records the client directory (derived from the path of the
+    # evaluating script), the (initially empty) HTTP(S) login cookie, the quiet
+    # and verbose-temporary-directory flags, the public-account user name and
+    # password, the persistent and temporary root directories, the
+    # via-installer flag, and the executable names, probe commands, and version
+    # patterns used to detect Mono and .NET Core.  It exists as the central
+    # one-time initializer that makes the toolset usable out of the box.
+    #
+    # How it works: for each item it declares the namespace variable and, only
+    # when force is true or the variable does not already exist, assigns the
+    # documented default.  Some defaults are computed (the client directory via
+    # [file normalize] of the script's directory, the persistent root via
+    # [getPersistentRootDirectory], the temporary root via the package
+    # repository helper) and some are platform-dependent (the Mono and .NET
+    # Core executable names differ on Windows).  As with the other setup
+    # procedures, the "set only if forced or missing" pattern preserves values
+    # supplied earlier by a settings file.
+    #
+    # Tricky/security details: the public-account password default is embedded
+    # here in plaintext.  Per the in-line notes it is NOT treated as a true
+    # secret, but it is still access-control material and should not be shared
+    # with anyone lacking access to this client.  The Mono and .NET Core probe
+    # commands are stored as brace-quoted templates and are later expanded with
+    # [subst] and executed via [exec]; the configured executable names are
+    # therefore eventually run as external processes, so any override of those
+    # names is security-relevant.  The login cookie is initialized empty here,
+    # meaning the client starts out unauthenticated.
+    #
+    # Arguments:
+    #   script -- The fully qualified path and file name of the script being
+    #             evaluated; its directory is used to derive the client
+    #             directory.
+    #   force  -- A boolean.  When true, every configuration variable is reset
+    #             to its default.  When false, only missing variables are
+    #             initialized, preserving existing values.
+    #
+    # Results:
+    #   The result is unspecified; the procedure is invoked for its side effect
+    #   of populating the namespace configuration variables.
+    # </help>
+
     #
     # NOTE: What is the fully qualified path to the directory containing the
     #       package downloader client?
@@ -383,6 +558,43 @@ namespace eval ::PackageDownloader {
   #
   # <public>
   proc useServerId { {serverId ""} } {
+    # <help>
+    # This procedure reconfigures the URN variables used by the package
+    # downloader client so that an alternate (often private) backend file
+    # server can be targeted instead of the default one.  It exists to let a
+    # single client installation be pointed at a differently provisioned server
+    # without editing the script, by appending a caller-supplied server
+    # identifier to each well-known URN prefix.
+    #
+    # How it works: it first validates the server identifier through the
+    # package repository helper.  If the identifier is a non-empty string, it
+    # rebuilds the download, login, logout, signing-key (primary and fallback
+    # mirror), and platforms URNs by appending the identifier to hard-coded
+    # prefixes.  If the identifier is the empty string, it instead forcibly
+    # restores all URNs to their built-in defaults by calling
+    # [setupDownloadServerVars] with force enabled.
+    #
+    # Tricky/security details: the URN prefixes used here are hard-coded and,
+    # per the in-line HACK note, MUST be kept manually synchronized with the
+    # defaults in [setupDownloadServerVars]; if they drift, this procedure will
+    # silently build URNs that point at the wrong (or nonexistent) endpoints.
+    # The server identifier is constrained by the repository helper to be
+    # alphanumeric and to begin with a letter, which both validates input and
+    # guards against injection of unexpected characters into endpoint names.
+    # Selecting a server changes which host the client trusts for keys, login,
+    # and package data, so it is a security-relevant configuration change.
+    #
+    # Arguments:
+    #   serverId -- Optional.  An alphanumeric identifier beginning with a
+    #               letter that selects an alternate backend server.  Defaults
+    #               to the empty string, which restores the default URNs.
+    #
+    # Results:
+    #   The result is unspecified; the procedure is invoked for its side effect
+    #   of updating the URN configuration variables.  An invalid server
+    #   identifier raises a script error.
+    # </help>
+
     variable downloadUrn
     variable loginUrn
     variable logoutUrn
@@ -423,6 +635,38 @@ namespace eval ::PackageDownloader {
   #
   # <public>
   proc useVersionId { {versionId ""} } {
+    # <help>
+    # This procedure reconfigures the version variables used by the package
+    # downloader client so that a specific repository version (a Fossil
+    # check-in identifier) is fetched instead of the default branch.  It exists
+    # to let callers pin downloads to an exact revision rather than tracking the
+    # tip of a branch.
+    #
+    # How it works: it first validates the version identifier via
+    # [verifyVersionId].  If the identifier is a non-empty string, it sets the
+    # branch-name variable to that identifier so subsequent requests target it.
+    # If the identifier is the empty string, it forcibly restores the version
+    # variables to their defaults by calling [setupDownloadVersionVars] with
+    # force enabled.
+    #
+    # Tricky/security details: the version identifier is constrained by
+    # [verifyVersionId] to be hexadecimal, matching the form of a Fossil
+    # check-in hash and preventing unexpected characters from being injected
+    # into the branch/version field of request URIs.  Pinning to a specific
+    # version is the safer choice when reproducibility matters, since a branch
+    # name can move.
+    #
+    # Arguments:
+    #   versionId -- Optional.  A hexadecimal version (check-in) identifier to
+    #                pin downloads to.  Defaults to the empty string, which
+    #                restores the default branch.
+    #
+    # Results:
+    #   The result is unspecified; the procedure is invoked for its side effect
+    #   of updating the version configuration variable.  An invalid version
+    #   identifier raises a script error.
+    # </help>
+
     variable branchName
 
     verifyVersionId $versionId
@@ -448,6 +692,34 @@ namespace eval ::PackageDownloader {
   #       The value argument is the value of the parameter.
   #
   proc uriEscape { name value } {
+    # <help>
+    # This procedure escapes a single name/value pair for safe inclusion in a
+    # URI query string, returning the encoded "name=value" fragment.  It exists
+    # so that user-supplied values (login names, passwords, file names, auth
+    # tokens) can be embedded in request URIs without breaking the query-string
+    # syntax or allowing query-parameter injection.
+    #
+    # How it works: under Eagle it uses the built-in [uri escape data] to
+    # percent-encode the name and the value independently and joins them with
+    # an equals sign.  Under native Tcl it loads the http package and delegates
+    # to its formatQuery helper, which performs the equivalent encoding.  This
+    # gives consistent behavior across both supported languages.
+    #
+    # Tricky/security details: this is the toolset's primary defense against
+    # query-string injection; both the name and the value are encoded, so even
+    # values containing ampersands, equals signs, or other reserved characters
+    # are rendered inert.  It is relied upon by the URI templates built in
+    # [setupDownloadUriVars].
+    #
+    # Arguments:
+    #   name  -- The query parameter name to encode.
+    #   value -- The query parameter value to encode.
+    #
+    # Results:
+    #   A percent-encoded "name=value" string suitable for use as one element
+    #   of a URI query string.
+    # </help>
+
     if {[isEagle]} then {
       return [appendArgs \
           [uri escape data $name] = [uri escape data $value]]
@@ -464,6 +736,34 @@ namespace eval ::PackageDownloader {
   #       use.  There are no arguments.
   #
   proc getPersistentRootDirectory {} {
+    # <help>
+    # This procedure returns the root directory under which downloaded packages
+    # should be saved to permanent storage for subsequent reuse.  It exists to
+    # centralize the policy for where persistent packages live so that the rest
+    # of the toolset (and any sharing across multiple interpreters) agrees on a
+    # single location.
+    #
+    # How it works: it first checks the PKGD_ROOT environment variable; if set,
+    # its value is returned verbatim, allowing the location to be overridden
+    # (typically when several Tcl instances need to share packages).  Otherwise
+    # it falls back to a "pkgd" directory placed parallel to the directory that
+    # contains the interpreter's library directory.
+    #
+    # Tricky/security details: because the environment variable is honored
+    # without validation, anything that can set PKGD_ROOT in this process's
+    # environment controls where downloaded package files are written and later
+    # loaded from; on a multi-user or untrusted system this is a security-
+    # relevant input.  The fallback path depends on [info library] being
+    # meaningful in the current interpreter.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The fully qualified (though not necessarily existing) path of the
+    #   persistent package root directory.
+    # </help>
+
     global env
 
     #
@@ -488,6 +788,31 @@ namespace eval ::PackageDownloader {
   #       There are no arguments.  The return value is undefined.
   #
   proc verifyPersistentRootDirectory {} {
+    # <help>
+    # This procedure validates the configured persistent root directory and
+    # ensures it is usable, raising a script error if anything is wrong.  It
+    # exists as a guard that the download/persist paths call before writing any
+    # persistent package files, so that failures are reported early and
+    # clearly rather than mid-copy.
+    #
+    # How it works: it checks that the persistent-root variable exists and is
+    # non-empty, then confirms that the directory either already exists or can
+    # be created (it attempts [file mkdir] inside a [catch]).  Any failed check
+    # raises a descriptive error.
+    #
+    # Tricky/security details: as a side effect this may create the persistent
+    # root directory on disk.  The directory it validates is where downloaded
+    # packages are later stored and from which they may be loaded, so its
+    # correctness is relevant to the integrity of what eventually gets executed.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The result is unspecified on success.  A script error is raised if the
+    #   persistent root directory is unset, empty, or cannot be created.
+    # </help>
+
     variable persistentRootDirectory
 
     if {![info exists persistentRootDirectory]} then {
@@ -516,6 +841,27 @@ namespace eval ::PackageDownloader {
   #       be returned if the language is unsupported or unrecognized.
   #
   proc getPackageIndexFileName { language } {
+    # <help>
+    # This procedure returns the conventional package index file name for a
+    # given target language.  It exists so that the rest of the toolset can ask
+    # "what is the index file for this language?" in one place rather than
+    # hard-coding the names, which matters when scanning downloaded directories
+    # and when deciding what to add to the auto-path.
+    #
+    # How it works: an empty language or the literal "eagle" yields the Eagle
+    # index file name, the literal "tcl" yields the Tcl index file name, and
+    # anything else yields the empty string to signal an unsupported or
+    # unrecognized language.
+    #
+    # Arguments:
+    #   language -- The target language: the empty string or "eagle" for Eagle,
+    #               or "tcl" for native Tcl.
+    #
+    # Results:
+    #   The package index file name for the language, or the empty string when
+    #   the language is unsupported or unrecognized.
+    # </help>
+
     if {[string length $language] == 0 || $language eq "eagle"} then {
       return pkgIndex.eagle
     } elseif {$language eq "tcl"} then {
@@ -537,6 +883,42 @@ namespace eval ::PackageDownloader {
   #       The return value is undefined.
   #
   proc maybeCreateRootTclPackageIndex {} {
+    # <help>
+    # This procedure, used only for native Tcl, generates a top-level
+    # "root" package index file in the persistent root directory if one does
+    # not already exist.  The generated index recursively scans every
+    # subdirectory of the persistent root for native Tcl package index files
+    # and sources them, which is what makes packages persisted there become
+    # visible to Tcl 8.4 (or higher).  It exists because, unlike Eagle which
+    # already searches for index files recursively, native Tcl does not, so a
+    # bridging index file must be created.  It is therefore not needed for
+    # Eagle.
+    #
+    # How it works: it verifies the persistent root directory, computes the
+    # path of the root index file there, and returns immediately if that file
+    # already exists (it never overwrites an existing one).  Otherwise it writes
+    # a fixed Tcl script (with line endings normalized) that iterates over the
+    # directory tree rooted at the persistent root, sourcing each child
+    # directory's index file and discovering further subdirectories as it goes.
+    # The generated script also bails out harmlessly under old Tcl or under
+    # Eagle.
+    #
+    # Tricky/security details: the generated index file sources every Tcl
+    # package index file found beneath the persistent root.  This means any
+    # code in those index files will run when Tcl initializes packages, so the
+    # integrity of the persistent root directory tree is security-relevant; an
+    # attacker able to write an index file there gains code execution.  The
+    # generated file is explicitly marked do-not-edit.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   An empty string in all cases (whether or not the file was created).  A
+    #   script error may be raised if the persistent root directory cannot be
+    #   verified or the file cannot be written.
+    # </help>
+
     variable persistentRootDirectory
 
     verifyPersistentRootDirectory
@@ -598,6 +980,43 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #
   # <internal>
   proc downloadAndSaveOpenPgpKeyFile { fileName } {
+    # <help>
+    # This procedure downloads the Package Signing Keys (OpenPGP key data) from
+    # the remote server and saves them to a local file.  These keys are the
+    # trust anchor that later OpenPGP signature verification depends on, so
+    # obtaining them is a security-critical bootstrap step.  It exists chiefly
+    # for use by the "pkgr_setup.eagle" tool script and, per the in-line note,
+    # may be removed in a later version.
+    #
+    # How it works: it tries the configured primary signing-key URI and then,
+    # if that fails, the configured fallback (mirror) URI, in order.  For each
+    # candidate it performs the deferred [subst] to expand the URI template
+    # into an actual URI and then calls [downloadOneUriToFile] to fetch it and
+    # write it to the given local file.  The first successful download wins and
+    # the procedure returns immediately.  Failures are accumulated and, if no
+    # URI succeeds, are raised together as an error (with a synthesized message
+    # if for some reason no error was recorded).
+    #
+    # Tricky/security details: note that the download here is performed with
+    # OpenPGP verification DISABLED (both the usePgp and forcePgp arguments to
+    # [downloadOneUriToFile] are false).  This is inherent to bootstrapping the
+    # key material -- the keys themselves cannot be verified with the keys you
+    # are still fetching.  Consequently the authenticity of the downloaded keys
+    # rests entirely on the security of the transport (the HTTPS endpoint) and
+    # on the trustworthiness of the configured server; if that channel is
+    # compromised, an attacker could substitute their own keys and defeat all
+    # later signature checks.  The fallback URI is only consulted when the
+    # primary fails.
+    #
+    # Arguments:
+    #   fileName -- The local file name where the downloaded OpenPGP key data
+    #               should be written.
+    #
+    # Results:
+    #   An empty string on success.  On failure a script error is raised whose
+    #   value is a list of the per-URI errors encountered.
+    # </help>
+
     variable baseUri
     variable openPgpKeyUri
     variable openPgpKeyUriFallback
@@ -657,6 +1076,37 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       argument should be non-zero to ignore the contents of the file.
   #
   proc isOpenPgpSignatureFileName { fileName nameOnly } {
+    # <help>
+    # This procedure decides whether a given file appears to be an OpenPGP
+    # signature file, either by its name alone or by inspecting its contents.
+    # It exists so that the download paths can tell signature files apart from
+    # the data files they sign, which governs when signature verification is
+    # attempted and how downloaded files are paired.
+    #
+    # How it works: an empty file name is immediately reported as not a
+    # signature.  Otherwise it looks at the file extension; only ".txt" and
+    # ".asc" are considered candidates.  If nameOnly is requested (or the file
+    # does not exist), a matching extension alone is enough to report true.
+    # When nameOnly is false and the file exists, it reads the file and defers
+    # to the package repository helper [isOpenPgpSignature] to confirm the
+    # content actually looks like an OpenPGP signature.
+    #
+    # Tricky/security details: this is a heuristic, not a cryptographic check;
+    # it tells you what a file claims to be, not whether any signature is
+    # valid.  The content-based mode reads the entire file into memory.  A
+    # nameOnly check can be fooled by a misnamed file, so it should not be
+    # relied upon for trust decisions on its own.
+    #
+    # Arguments:
+    #   fileName -- The name of the file to check; it may or may not exist.
+    #   nameOnly -- A boolean.  When true, the decision is based solely on the
+    #               file name (extension) and the file's contents are not read.
+    #
+    # Results:
+    #   Non-zero (true) if the file appears to be an OpenPGP signature file;
+    #   otherwise zero (false).
+    # </help>
+
     if {[string length $fileName] == 0} then {
       return false
     }
@@ -683,6 +1133,36 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #
   # <notUsed>
   proc isHarpyCertificateFileName { fileName nameOnly } {
+    # <help>
+    # This procedure decides whether a given file appears to be a Harpy script
+    # certificate file, either by its name alone or by inspecting its contents.
+    # Harpy certificates carry the digital signatures used to establish trust
+    # in Eagle scripts, so distinguishing such files is security-relevant.  It
+    # is currently not used by this toolset (it is marked notUsed) but is
+    # provided as a counterpart to the OpenPGP signature detector.
+    #
+    # How it works: an empty file name is reported as not a certificate.
+    # Otherwise it checks for the ".harpy" extension.  If nameOnly is requested
+    # (or the file does not exist), the matching extension alone is enough to
+    # report true.  When nameOnly is false and the file exists, it reads the
+    # file and defers to the package repository helper [isHarpyCertificate] to
+    # confirm the content actually looks like a Harpy certificate.
+    #
+    # Tricky/security details: like its OpenPGP counterpart this is only a
+    # classification heuristic, not a validity check; it does not verify any
+    # signature.  The content-based mode reads the whole file into memory, and
+    # a nameOnly result can be defeated by a misnamed file.
+    #
+    # Arguments:
+    #   fileName -- The name of the file to check; it may or may not exist.
+    #   nameOnly -- A boolean.  When true, the decision is based solely on the
+    #               file name (extension) and the file's contents are not read.
+    #
+    # Results:
+    #   Non-zero (true) if the file appears to be a Harpy certificate file;
+    #   otherwise zero (false).
+    # </help>
+
     if {[string length $fileName] == 0} then {
       return false
     }
@@ -708,6 +1188,45 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       OpenPGP signature file.  This procedure may raise script errors.
   #
   proc maybeVerifyOpenPgpSignature { fileName forcePgp } {
+    # <help>
+    # This procedure conditionally verifies an OpenPGP signature file and
+    # raises a script error if verification fails.  It is the choke point
+    # through which the toolset enforces signature checking on downloaded
+    # signature files, and is therefore central to the integrity guarantees of
+    # the download path.
+    #
+    # How it works: it verifies only when forcePgp is true OR when the file
+    # already looks like an OpenPGP signature file (decided by name via
+    # [isOpenPgpSignatureFileName] with nameOnly true).  When verification is
+    # to be performed it probes for and then insists upon an OpenPGP
+    # installation (via the package repository helpers
+    # [probeForOpenPgpInstallation] and [openPgpMustBeInstalled], the latter of
+    # which errors if OpenPGP is unavailable), then calls
+    # [verifyOpenPgpSignature].  A false result raises a "bad OpenPGP
+    # signature" error naming the file.
+    #
+    # Tricky/security details: this is a maybe-verify, not an always-verify.
+    # When forcePgp is false and the file does not look like a signature file
+    # by name, the procedure does NOTHING and returns successfully -- so a
+    # caller that wants a file checked unconditionally MUST pass forcePgp true.
+    # Verification requires a working OpenPGP installation; if one is missing
+    # the procedure errors out rather than silently skipping the check (a
+    # fail-closed behavior, which is the safe default).  The actual
+    # cryptographic verification, including which keys are trusted, is handled
+    # by the repository helper and depends on the previously imported Package
+    # Signing Keys.
+    #
+    # Arguments:
+    #   fileName -- The local file name of the OpenPGP signature file to verify.
+    #   forcePgp -- A boolean.  When true, verification is attempted even if the
+    #               file does not appear (by name) to be a signature file.
+    #
+    # Results:
+    #   The result is unspecified on success (including the case where no
+    #   verification was performed).  A script error is raised if OpenPGP is
+    #   not installed or the signature does not verify.
+    # </help>
+
     #
     # NOTE: Is this temporary package file actually just an OpenPGP
     #       signature file?  If so, skip it.
@@ -736,6 +1255,35 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       script errors.
   #
   proc getAutoPath { language } {
+    # <help>
+    # This procedure returns the auto-path (the list of directories searched
+    # for packages) for a given target language, which may be Eagle or native
+    # Tcl.  It exists so that the auto-path manipulation procedures can read the
+    # correct language's auto-path regardless of whether this code is itself
+    # running under Eagle or under Tcl.
+    #
+    # How it works: for the Eagle language it returns the global auto-path of
+    # the current interpreter when running under Eagle, or evaluates the query
+    # inside an Eagle sub-interpreter (after ensuring Eagle is ready) when
+    # running under Tcl.  For the Tcl language it does the mirror image: when
+    # running under Eagle it asks the primary Tcl interpreter, and when running
+    # under Tcl it reads its own global auto-path.  In every case a missing
+    # auto-path variable yields the empty list.
+    #
+    # Tricky details: the cross-language cases bridge between the Eagle and Tcl
+    # interpreters, so they rely on that bridge being available (Eagle being
+    # ready, or a primary Tcl interpreter existing).  The result reflects the
+    # auto-path at the moment of the call only.
+    #
+    # Arguments:
+    #   language -- The target language: the empty string or "eagle" for Eagle,
+    #               or "tcl" for native Tcl.
+    #
+    # Results:
+    #   The auto-path list for the requested language, or the empty list if it
+    #   does not exist.  An unsupported language raises a script error.
+    # </help>
+
     if {[string length $language] == 0 || $language eq "eagle"} then {
       if {[isEagle]} then {
         if {![info exists ::auto_path]} then {
@@ -784,6 +1332,38 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       the auto-path.
   #
   proc addToAutoPath { language directory } {
+    # <help>
+    # This procedure adds a directory to the auto-path of a given target
+    # language (Eagle or native Tcl), unless it is already present.  It exists
+    # so that freshly downloaded or persisted package directories can be made
+    # discoverable by the package machinery of the appropriate language.
+    #
+    # How it works: for each language it handles both the case of running under
+    # that language directly and the cross-language case of reaching the other
+    # interpreter (the primary Tcl interpreter from Eagle, or an Eagle
+    # sub-interpreter from Tcl).  In every variant it appends the directory to
+    # the global auto-path only when the auto-path either does not yet exist or
+    # does not already contain that exact directory (an exact-match test).  In
+    # the cross-language cases the directory is spliced into a small script via
+    # [string map] and brace-quoted so that it survives evaluation in the other
+    # interpreter.
+    #
+    # Tricky/security details: adding a directory to the auto-path means
+    # packages found there can be auto-loaded and executed, so this should only
+    # ever be called with directories whose contents are trusted.  Matching is
+    # exact (not normalized) here, so callers that need normalization or
+    # subdirectory-aware checks should use [maybeAddToAutoPath] instead.
+    #
+    # Arguments:
+    #   language  -- The target language: the empty string or "eagle" for
+    #                Eagle, or "tcl" for native Tcl.
+    #   directory -- The fully qualified directory to add to the auto-path.
+    #
+    # Results:
+    #   The result is unspecified; the procedure is invoked for its side effect
+    #   on the auto-path.  An unsupported language raises a script error.
+    # </help>
+
     #
     # NOTE: Add the specified directory to the auto-path if not already
     #       present.
@@ -833,6 +1413,42 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       a directory already in the auto-path.
   #
   proc maybeAddToAutoPath { language directory } {
+    # <help>
+    # This procedure conditionally adds a directory to the auto-path of a given
+    # target language, skipping the addition not only when the directory is
+    # already present but also when it already falls underneath some directory
+    # already in the auto-path.  It exists to avoid redundant, overlapping
+    # auto-path entries (which would cause the same packages to be discovered
+    # more than once) and to safely ignore nonexistent directories.
+    #
+    # How it works: it first rejects an empty or non-directory argument
+    # (returning false without doing anything).  It then normalizes the
+    # candidate directory and queries the language's auto-path via
+    # [getAutoPath].  For each existing auto-path entry it normalizes that
+    # entry and performs a prefix comparison: if the candidate's leading
+    # characters equal an existing normalized entry, the candidate is
+    # considered to reside under it and the addition is skipped.  If no entry
+    # covers the candidate, it delegates to [addToAutoPath].
+    #
+    # Tricky/security details: the containment test is a normalized
+    # string-prefix comparison rather than a true path-component test, so it is
+    # a pragmatic heuristic (two sibling directories sharing a name prefix
+    # could in principle confuse a naive prefix check, though normalization
+    # mitigates this in practice).  As with [addToAutoPath], any directory
+    # added becomes a place packages may be loaded from, so it must be trusted.
+    #
+    # Arguments:
+    #   language  -- The target language: the empty string or "eagle" for
+    #                Eagle, or "tcl" for native Tcl.
+    #   directory -- The fully qualified directory to consider adding; it is
+    #                normalized before comparison.
+    #
+    # Results:
+    #   Non-zero (true) if the directory was actually added to the auto-path;
+    #   zero (false) if it was skipped (missing, not a directory, already
+    #   present, or already covered by an existing entry).
+    # </help>
+
     #
     # NOTE: Verify that the directory to be added is valid and exists.  If
     #       not, do nothing.
@@ -906,6 +1522,34 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       available for use; otherwise, the return value is zero.
   #
   proc isMonoInstalled {} {
+    # <help>
+    # This procedure attempts to determine whether a usable Mono installation
+    # (and its runtimes) is present locally.  It exists to support platform
+    # selection: knowing whether Mono is available helps decide whether the
+    # "msil" (managed CLR) package platform can be used on non-Windows systems.
+    #
+    # How it works: it expands the configured Mono probe command template via
+    # [subst] (substituting the configured Mono executable name) and runs it
+    # with [exec] inside a [catch].  Under Eagle it additionally requires the
+    # external process to report success.  Any execution failure is treated as
+    # "not installed".  On success it matches the captured output against the
+    # configured Mono version pattern; only a match counts as installed.
+    #
+    # Tricky/security details: this runs an external program whose name comes
+    # from configuration, so an attacker able to influence that configuration
+    # (or the executable search path) could cause an arbitrary program to be
+    # executed during probing.  The result is only as trustworthy as the
+    # configured command and pattern.  A failure to execute is deliberately
+    # swallowed and reported as not installed rather than raising an error.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Non-zero (true) if Mono appears installed and usable; otherwise zero
+    #   (false).
+    # </help>
+
     variable monoFileNameOnly
     variable monoInstalledCommand
     variable monoInstalledPattern
@@ -940,6 +1584,34 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       is zero.
   #
   proc isDotNetCoreInstalled {} {
+    # <help>
+    # This procedure attempts to determine whether a usable .NET Core
+    # installation (and its runtimes) is present locally.  Like its Mono
+    # counterpart, it exists to support platform selection, helping decide
+    # whether the "msil" (managed CLR) package platform is usable on
+    # non-Windows systems.
+    #
+    # How it works: it expands the configured .NET Core probe command template
+    # via [subst] (substituting the configured dotnet executable name) and runs
+    # it with [exec] inside a [catch].  Under Eagle it additionally requires the
+    # process to report success.  Any execution failure is treated as "not
+    # installed".  On success it matches the trimmed captured output against the
+    # configured .NET Core version pattern; only a match counts as installed.
+    #
+    # Tricky/security details: this runs an external program whose name comes
+    # from configuration; the same caveats as for the Mono probe apply -- an
+    # attacker controlling that configuration or the executable search path
+    # could cause an arbitrary program to run.  Execution failures are
+    # swallowed and reported as not installed rather than raising an error.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Non-zero (true) if .NET Core appears installed and usable; otherwise
+    #   zero (false).
+    # </help>
+
     variable dotnetFileNameOnly
     variable dotnetInstalledCommand
     variable dotnetInstalledPattern
@@ -974,6 +1646,32 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       return value is zero.
   #
   proc canUseMsilPlatform {} {
+    # <help>
+    # This procedure decides whether the local machine can run managed CLR
+    # (MSIL) applications, which determines whether the "msil" package platform
+    # is eligible during platform detection and verification.  It exists to
+    # gate selection of MSIL-targeted package files to systems that can
+    # actually execute them.
+    #
+    # How it works: on Windows it assumes a compatible .NET Framework is always
+    # present and returns true outright.  On every other platform it returns
+    # true only if either Mono or .NET Core is detected as installed (via
+    # [isMonoInstalled] or [isDotNetCoreInstalled]).
+    #
+    # Tricky/security details: per the in-line HACK notes the Windows answer is
+    # an unconditional assumption, not an actual probe, so it can be optimistic
+    # on stripped-down Windows installs.  On other platforms the answer
+    # inherits the external-process caveats of the underlying installation
+    # probes.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Non-zero (true) if CLR applications should be runnable locally;
+    #   otherwise zero (false).
+    # </help>
+
     if {[isWindows]} then {
       #
       # HACK: Assume that all Windows operating systems have a compatible
@@ -997,6 +1695,32 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #
   # <internal>
   proc verifyPackageName { packageName } {
+    # <help>
+    # This procedure validates that a value is a well-formed package name,
+    # raising a script error if it is not.  It exists as an input-validation
+    # guard called before a package name is used to build server paths and
+    # request URIs.
+    #
+    # How it works: a non-empty package name must match a case-insensitive
+    # pattern requiring it to start with a letter and otherwise consist only of
+    # alphanumeric characters and dots; anything else raises an error.  An
+    # empty package name is permitted (it is treated as "unspecified" by
+    # callers, which may later guess it) and passes without error.
+    #
+    # Tricky/security details: this is a security-relevant whitelist.  By
+    # restricting package names to a safe alphabet it prevents path-traversal
+    # sequences, slashes, or query-string metacharacters from being smuggled
+    # into the directory and URI construction that consumes the name.
+    #
+    # Arguments:
+    #   packageName -- The candidate package name to validate; the empty string
+    #                  is allowed.
+    #
+    # Results:
+    #   The result is unspecified on success.  A script error is raised when a
+    #   non-empty name does not match the required pattern.
+    # </help>
+
     if {[string length $packageName] > 0 && \
         ![regexp -nocase -- {^[A-Z][0-9A-Z\.]*$} $packageName]} then {
       error "package name must be alphanumeric and start with a letter"
@@ -1010,6 +1734,29 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #
   # <internal>
   proc verifyPackagePatchLevel { patchLevel } {
+    # <help>
+    # This procedure validates that a value is a well-formed package patch
+    # level (version), raising a script error if it is not.  It exists as an
+    # input-validation guard for version strings.
+    #
+    # How it works: a non-empty patch level must match a dotted-decimal pattern
+    # of two to four numeric components (for example, major.minor with up to
+    # two further optional components); anything else raises an error.  An
+    # empty patch level is allowed and passes without error.
+    #
+    # Tricky/security details: like the package-name check this is a whitelist
+    # that confines the value to digits and dots, preventing unexpected
+    # characters from reaching path or URI construction.
+    #
+    # Arguments:
+    #   patchLevel -- The candidate patch level to validate; the empty string
+    #                 is allowed.
+    #
+    # Results:
+    #   The result is unspecified on success.  A script error is raised when a
+    #   non-empty value is not in dotted-decimal notation.
+    # </help>
+
     if {[string length $patchLevel] > 0 && \
         ![regexp -nocase -- {^\d+\.\d+(?:\.\d+){0,2}$} $patchLevel]} then {
       error "patch level must use dotted decimal notation"
@@ -1031,6 +1778,44 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #
   # <internal>
   proc verifyLanguageAndVersion { language version varName } {
+    # <help>
+    # This procedure validates a language-and-version combination and reports,
+    # via an out-parameter, whether the language refers to the package
+    # downloader client itself.  It exists as an input-validation guard used
+    # throughout the download paths and as the single place that distinguishes
+    # client files from ordinary package files (which affects where files are
+    # stored).
+    #
+    # How it works: an optional caller variable (named by varName) is linked
+    # via [upvar] and initialized to false.  For an empty language or "eagle",
+    # the version must be exactly "1.0".  For "tcl", the version must be one of
+    # the supported Tcl releases ("8.4", "8.5", "8.6", or "8.7").  For
+    # "client", the version must match the major/minor "1.0" with any further
+    # numeric components, and the out-parameter is set to true.  Any other
+    # language, or a version not allowed for the language, raises a script
+    # error.
+    #
+    # Tricky/security details: this is a whitelist of acceptable languages and
+    # versions, restricting the values that flow into server paths.  The
+    # isClient out-parameter is consequential: when true, callers persist files
+    # into the client directory rather than the package "packages" subtree, so
+    # a misclassification would place files in the wrong location.
+    #
+    # Arguments:
+    #   language -- The language to validate: empty string or "eagle", "tcl",
+    #               or "client".
+    #   version  -- The version to validate; allowed values depend on the
+    #               language as described above.
+    #   varName  -- The name of a scalar variable in the immediate caller that
+    #               receives a boolean indicating whether the language is the
+    #               client itself.  May be empty to skip the out-parameter.
+    #
+    # Results:
+    #   The result is unspecified on success; the validation outcome is
+    #   communicated via the out-parameter and via raised errors.  A script
+    #   error is raised for an unsupported language or version.
+    # </help>
+
     if {[string length $varName] > 0} then {
       upvar 1 $varName isClient
     }
@@ -1064,6 +1849,34 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #
   # <internal>
   proc getPlatform {} {
+    # <help>
+    # This procedure returns the canonical platform name for the current
+    # machine, as used to select platform-specific package files on the server
+    # (for example, "win64-x64", "linux-x64", or "macosx-x64").  It exists to
+    # map the interpreter's platform/OS/machine description onto the naming
+    # convention the package file server uses.
+    #
+    # How it works: it reads the global tcl_platform array (platform, machine,
+    # and os elements) and runs nested [switch] statements to translate the
+    # combination into a known platform name.  Unix/Darwin and Unix/Linux are
+    # mapped by machine (with several Linux architectures synthesized by
+    # appending the raw machine name), and Windows is mapped by machine into
+    # win32-/win64- names.  Combinations it does not recognize fall through.
+    #
+    # Tricky details: it depends on tcl_platform being populated; if the
+    # platform element is missing, or the specific platform/os/machine
+    # combination is not handled, it returns the empty string rather than
+    # erroring.  Callers must therefore be prepared for an empty result meaning
+    # "could not determine the platform".
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The canonical platform name string, or the empty string when the
+    #   platform cannot be determined.
+    # </help>
+
     global tcl_platform
 
     if {[info exists tcl_platform(platform)]} then {
@@ -1145,6 +1958,30 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #
   # <internal>
   proc verifyVersionId { versionId } {
+    # <help>
+    # This procedure validates that a value is a well-formed version
+    # identifier, raising a script error if it is not.  It exists as the
+    # input-validation guard used by [useVersionId] before a check-in
+    # identifier is placed into the branch/version field of request URIs.
+    #
+    # How it works: a non-empty identifier must match a case-insensitive
+    # hexadecimal pattern (matching the form of a Fossil check-in hash);
+    # anything else raises an error.  An empty identifier is allowed and
+    # passes without error.
+    #
+    # Tricky/security details: this whitelist confines the value to hexadecimal
+    # characters, preventing injection of slashes, query metacharacters, or
+    # other unexpected content into the URIs that incorporate the version.
+    #
+    # Arguments:
+    #   versionId -- The candidate version identifier to validate; the empty
+    #                string is allowed.
+    #
+    # Results:
+    #   The result is unspecified on success.  A script error is raised when a
+    #   non-empty value is not hexadecimal.
+    # </help>
+
     if {[string length $versionId] > 0 && \
         ![regexp -nocase -- {^[0-9A-F]*$} $versionId]} then {
       error "version Id must be hexadecimal"
@@ -1164,6 +2001,53 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #
   # <internal>
   proc verifyPlatform { platform varName } {
+    # <help>
+    # This procedure validates a platform name and, for the special automatic
+    # case, detects an appropriate platform for the entity being downloaded,
+    # writing the chosen platform back through an out-parameter.  It exists as
+    # the input-validation and platform-selection guard used by the download
+    # procedures, and it is the most involved of the verify helpers because the
+    # automatic case actually contacts the network.
+    #
+    # How it works: the platform name is matched exactly and case-sensitively.
+    # The empty string means "automatically detect".  In that case the
+    # procedure reaches into the caller's frame (via [upvar]) to read the
+    # ambient language, version, and optionally packageName, fileNames, and
+    # usePgp values; ensures a login exists by calling
+    # [maybeResetCookieAndLoginSimple]; downloads the set of platforms
+    # supported for the package via [downloadAllPlatforms]; and then chooses
+    # the first compatible platform from a candidate list -- the current
+    # machine platform (from [getPlatform]), then "neutral", and finally
+    # "msil" if [canUseMsilPlatform] reports MSIL is usable.  The chosen value
+    # is stored through the out-parameter named by varName.  The literal "msil"
+    # is accepted only if MSIL is actually usable.  A fixed set of explicit
+    # platform names is accepted verbatim, and anything else raises an error.
+    #
+    # Tricky/security details: the automatic case has significant side effects
+    # for a procedure named "verify" -- it logs in and performs a network
+    # download of a (OpenPGP-verifiable) manifest.  It relies on the caller's
+    # frame actually containing language and version variables and errors if it
+    # cannot find them.  Because platform selection decides which package
+    # binaries are fetched and ultimately loaded, it is security-relevant; the
+    # usePgp flag read from the caller controls whether the downloaded platform
+    # manifest is signature-verified.  If no candidate platform is supported by
+    # the package, an error is raised rather than silently choosing one.
+    #
+    # Arguments:
+    #   platform -- The platform to validate: the empty string (auto-detect),
+    #               "msil", "neutral", or one of the explicit win32-/win64-
+    #               platform names (or a value produced by [getPlatform]).
+    #   varName  -- The name of a caller variable that receives the resolved
+    #               platform name when auto-detection is performed.  May be
+    #               empty to skip writing the out-parameter.
+    #
+    # Results:
+    #   The result is unspecified on success.  A script error is raised when
+    #   the language or version cannot be detected, when "msil" is requested
+    #   but unsupported, when no compatible platform can be detected, or when
+    #   the platform name is unsupported.
+    # </help>
+
     #
     # NOTE: The platform name must be matched exactly and case-sensitively.
     #
@@ -1293,6 +2177,31 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       it exists -AND- conforms to the correct format.
   #
   proc haveValidLoginCookie {} {
+    # <help>
+    # This procedure checks whether the currently configured HTTP(S) login
+    # cookie exists and is well-formed.  It exists so that the request and
+    # login/logout procedures can cheaply decide whether they are already
+    # authenticated before attaching a cookie or attempting a (re)login.
+    #
+    # How it works: it returns false if the cookie variable does not exist.
+    # Under Eagle, or under Tcl 8.5 or higher, it additionally requires the
+    # cookie to be a strict, well-formed list.  It then requires the cookie to
+    # have exactly two elements (the cookie name and its value); any other
+    # length is rejected.
+    #
+    # Tricky/security details: this only checks the shape of the cookie, not
+    # whether the server still considers it valid -- a structurally fine but
+    # expired or revoked cookie will still pass.  The strict-list test is
+    # skipped on pre-8.5 Tcl, where that introspection is unavailable.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   Non-zero (true) if a structurally valid two-element login cookie is
+    #   present; otherwise zero (false).
+    # </help>
+
     variable loginCookie
 
     if {![info exists loginCookie]} then {
@@ -1323,6 +2232,49 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       should be allowed in the response data.
   #
   proc getPackageFile { uri {allowHtml false} } {
+    # <help>
+    # This procedure issues an HTTP(S) request to the package file server and
+    # returns the raw response data verbatim.  It is the single low-level
+    # transport used by virtually every download in the toolset, and it always
+    # attaches the currently configured login cookie (if any), so it must only
+    # be pointed at the package file server -- never at arbitrary URIs, lest the
+    # authentication cookie be leaked to a third party.
+    #
+    # How it works: under Eagle it first sanity-checks the library build,
+    # requiring the TEST and NETWORK compile-options (downloading is refused
+    # without them) and ensuring a web-client callback is installed.  If a
+    # valid login cookie is present, it arranges (through a GetWebRequest
+    # callback) to add a Cookie header carrying the joined cookie name and
+    # value, then calls [uri download] with an inline, network-timeout
+    # request; without a cookie it downloads the same way but without the
+    # header.  Under native Tcl it builds an options list (binary mode, plus a
+    # Cookie header when a valid cookie exists) and delegates to the package
+    # repository helper [getFileViaHttp], honoring the quiet flag.
+    #
+    # Tricky/security details: the login cookie is sent on every request, which
+    # is precisely why this must target only the trusted package file server.
+    # As a defense against a common server error mode, unless allowHtml is set,
+    # a response beginning with an HTML doctype is treated as an error (Fossil
+    # returns an HTML error page, for example "Artifact does not exist"),
+    # preventing such a page from being mistaken for package content.  The
+    # HTTPS transport is relied upon to protect the cookie and the downloaded
+    # data in transit; this procedure performs NO signature or hash
+    # verification of the content -- that is the responsibility of higher-level
+    # callers (for example, via [maybeVerifyOpenPgpSignature]).
+    #
+    # Arguments:
+    #   uri       -- The fully qualified URI to request; it must be a package
+    #                file server URI.
+    #   allowHtml -- Optional boolean (default false).  When false, an HTML
+    #                response is rejected as an error; when true, HTML is
+    #                returned as-is.
+    #
+    # Results:
+    #   The raw response data as a (possibly binary) string.  A script error is
+    #   raised on missing compile-options, callback setup failure, transport
+    #   failure, or an unexpected HTML response.
+    # </help>
+
     variable loginCookie
     variable quiet
 
@@ -1396,6 +2348,25 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       no arguments.
   #
   proc getDownloadVarNamePrefix {} {
+    # <help>
+    # This procedure returns the fixed prefix for the fully qualified global
+    # variable names that the package downloader client may consult (for
+    # example, when locating configured API keys).  It exists to keep that
+    # well-known prefix in one place rather than scattering the literal across
+    # callers.
+    #
+    # How it works: it simply returns the constant prefix string.  An in-line
+    # TODO notes that these variables are currently global and might be made
+    # non-global in the future.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The variable-name prefix string used to find download-related global
+    #   variables (such as API keys).
+    # </help>
+
     return ::pkgd_; # TODO: Make non-global?
   }
 
@@ -1409,6 +2380,37 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #
   # <public>
   proc resetCookieAndLoginSimple {} {
+    # <help>
+    # This procedure logs in to the package file server without the caller
+    # having to supply credentials, preferring a configured API key and
+    # falling back to the public account.  It exists as the convenient,
+    # zero-argument entry point that most download operations use to establish
+    # an authenticated session.
+    #
+    # How it works: it asks the package repository helper [getApiKeys] (scoped
+    # by the download variable-name prefix) for an API key and takes the first
+    # one.  If an API key is found, it logs in by calling [resetCookieAndLogin]
+    # with the key used as both the user name and the password.  Otherwise, if
+    # a public user name and password are both configured, it logs in with
+    # those.  If neither is available it raises an error.
+    #
+    # Tricky/security details: an API key is used as both the user name and
+    # password, which is how the server's API-key authentication is expected to
+    # work.  The public-account credentials are a fallback and are embedded in
+    # configuration; while not treated as a true secret, they still gate access
+    # and should not be shared outside parties entitled to use this client.
+    # The underlying login resets any existing cookie first, so calling this
+    # always establishes a fresh session.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   An empty string on success (the login cookie is set as a side effect).
+    #   A script error is raised when no API key and no public credentials are
+    #   available, or when the underlying login fails.
+    # </help>
+
     variable publicPassword
     variable publicUserName
 
@@ -1436,6 +2438,30 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #
   # <internal>
   proc maybeResetCookieAndLoginSimple {} {
+    # <help>
+    # This procedure ensures an authenticated session exists, logging in only
+    # if one does not already.  It exists so that procedures which may be
+    # invoked without a prior explicit login (for example, platform detection)
+    # can guarantee a usable cookie without forcing an unnecessary re-login.
+    #
+    # How it works: it checks [haveValidLoginCookie]; if a valid cookie is
+    # already present it does nothing, otherwise it delegates to
+    # [resetCookieAndLoginSimple] to establish one.
+    #
+    # Tricky/security details: this is idempotent in the common case -- it will
+    # not disturb an existing valid session.  Because the validity check is
+    # only structural (see [haveValidLoginCookie]), a stale-but-well-formed
+    # cookie will not trigger a fresh login here; the eventual server request
+    # would surface such a problem.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The result is unspecified; on return a login cookie should be present.
+    #   A script error is raised if a needed login fails.
+    # </help>
+
     variable loginCookie
 
     #
@@ -1459,6 +2485,43 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #
   # <public>
   proc resetCookieAndLogin { userName password } {
+    # <help>
+    # This procedure logs in to the package file server with an explicit user
+    # name and password, discarding any prior cookie and capturing a fresh
+    # authentication cookie from the response.  It is the workhorse beneath the
+    # simpler login helpers and the public entry point for credential-based
+    # login.
+    #
+    # How it works: it expands the login URI template via [subst] (which
+    # interpolates and URI-escapes the supplied user name and password), clears
+    # any existing login cookie, and issues the request via [getPackageFile].
+    # It then extracts the auth token and the login-cookie name from the JSON-
+    # ish response using regular expressions, erroring if either is absent.  On
+    # success it stores the two-element list of cookie name and auth token as
+    # the new login cookie.
+    #
+    # Tricky/security details: the credentials travel inside the request URI's
+    # query string (after escaping), so the confidentiality of those
+    # credentials depends entirely on the HTTPS transport -- they would be
+    # exposed over plain HTTP or in any logging of full URIs.  The response is
+    # parsed with regular expressions rather than a real JSON parser; the
+    # in-line TODO/HACK notes flag that these patterns must be kept in sync
+    # with the server's response format.  The old cookie is reset before the
+    # request, so a failed login leaves the client unauthenticated rather than
+    # holding a stale cookie.  The auth token captured here is later used to
+    # build the logout URI.
+    #
+    # Arguments:
+    #   userName -- A package file server user with at least Fossil Check-Out
+    #               (o) permission, or an API key acting as the user name.
+    #   password -- The plaintext password (or API key) for that user.
+    #
+    # Results:
+    #   An empty string on success (the login cookie is set as a side effect).
+    #   A script error is raised if the response is missing the auth token or
+    #   the login-cookie name, or if the request itself fails.
+    # </help>
+
     variable baseUri
     variable loginCookie
     variable loginUri
@@ -1512,6 +2575,36 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #
   # <public>
   proc logoutAndResetCookie {} {
+    # <help>
+    # This procedure logs out of the package file server using the current
+    # session and then clears the local login cookie.  It exists to cleanly
+    # terminate an authenticated session, both server-side and locally.
+    #
+    # How it works: it first requires a valid login cookie (erroring if there
+    # is none).  It extracts the auth token from the cookie, expands the logout
+    # URI template via [subst] (which interpolates and escapes the token), and
+    # issues the request via [getPackageFile].  It confirms the logout by
+    # matching the response against a pattern indicating the session is now the
+    # anonymous "nobody" user, erroring if that confirmation is absent.
+    # Finally it resets the local login cookie to empty.
+    #
+    # Tricky/security details: as with login, the response is checked with a
+    # regular expression whose pattern (per the in-line TODO/HACK note) must
+    # track the server's response format.  The local cookie is only cleared
+    # after a confirmed logout; if the server response does not confirm logout,
+    # an error is raised and the local cookie is left intact.  The auth token
+    # is carried in the logout URI's query string, so HTTPS transport is again
+    # relied upon to protect it.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   An empty string on success (the login cookie is cleared as a side
+    #   effect).  A script error is raised if there is no valid cookie, the
+    #   logout is not confirmed, or the request fails.
+    # </help>
+
     variable baseUri
     variable loginCookie
     variable logoutUri
@@ -1566,6 +2659,34 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       to actually create the resulting directory.
   #
   proc getUniqueTempDirectory { {prefix ""} } {
+    # <help>
+    # This procedure computes a unique temporary directory name (under the
+    # configured temporary root) into which downloaded files may be written.
+    # It exists so that each download operation can stage its files in a
+    # private, collision-free location before optionally persisting them.
+    #
+    # How it works: it obtains a unique suffix from the package repository
+    # helper [getUniqueSuffix] and joins it with the temporary root directory,
+    # optionally prefixing the leaf name with the caller's prefix.  When the
+    # verbose-temporary-directory flag is enabled it logs the chosen name.  It
+    # does NOT create the directory; it only returns the name.
+    #
+    # Tricky/security details: because the directory is not created here, there
+    # is a window between name generation and use.  The toolset assumes the
+    # temporary root is writable only by trusted applications (see the warning
+    # on [maybeAddTemporaryPackagesToAutoPath]); on systems where the temporary
+    # area is world-writable this staging area could be a target for tampering.
+    # The well-known prefixes (such as the library and version prefixes used by
+    # callers) are relied upon by the temporary-package auto-path scanner.
+    #
+    # Arguments:
+    #   prefix -- Optional leaf-name prefix for the directory; defaults to the
+    #             empty string, in which case only the unique suffix is used.
+    #
+    # Results:
+    #   The fully qualified, not-yet-created unique temporary directory name.
+    # </help>
+
     variable temporaryRootDirectory
     variable verboseTemporaryDirectory
 
@@ -1596,6 +2717,44 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       nothing and return nothing.  This procedure may raise script errors.
   #
   proc createInterp { varName } {
+    # <help>
+    # This procedure creates a heavily locked-down child interpreter in which
+    # the only meaningful command is the package ensemble, and places a
+    # reference to it in a caller variable.  It exists so that an untrusted
+    # package index file can be sourced merely to discover which packages and
+    # versions it would register, without allowing that file to actually do
+    # anything else.
+    #
+    # How it works: it links the caller variable via [upvar], then creates a
+    # safe interpreter and sets its global "dir" variable to a single period
+    # (the one variable a package index file typically relies upon).  It
+    # deletes all child namespaces, then turns every global command except
+    # [proc] and [package] into a no-op (by redefining each as an empty
+    # procedure).  Under native Tcl it also stubs out [file] as a no-op, since
+    # safe Tcl interpreters lack it entirely even though index files may call
+    # file join or file split.  Finally it neuters [proc] itself last (since it
+    # was the tool used to neuter the others).  The reference is returned
+    # through the caller variable, not as the result.
+    #
+    # Tricky/security details: this is a defense-in-depth sandbox for
+    # evaluating index files.  Because nearly every command is a no-op, any
+    # [set] of additional variables in the index file fails (set is a no-op),
+    # so index files relying on variables other than "dir" will not work here.
+    # The order of disabling matters: [proc] must be disabled last.  Even so,
+    # this relies on the safety properties of the underlying safe interpreter;
+    # it reduces, but the caller should still treat sourced index files as
+    # untrusted input.
+    #
+    # Arguments:
+    #   varName -- The name of a caller variable that receives the created
+    #              interpreter reference.
+    #
+    # Results:
+    #   An empty string (the interpreter is delivered through the caller
+    #   variable).  A script error may be raised if interpreter creation or
+    #   setup fails.
+    # </help>
+
     #
     # NOTE: Prepare to provide the caller with the newly created interpreter
     #       reference.
@@ -1673,6 +2832,40 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       procedure may raise script errors.
   #
   proc getIfNeededVersions { interp fileName } {
+    # <help>
+    # This procedure sources a package index file inside a given (sandboxed)
+    # interpreter and reports the packages it newly registers, along with their
+    # available versions.  It exists to discover the package-and-version
+    # information contained in a downloaded index file without trusting or
+    # executing that file in the real interpreter.
+    #
+    # How it works: it records the set of package names already known to the
+    # interpreter, sources the index file via [interp invokehidden] using the
+    # hidden source command (which runs the index file's [package ifneeded]
+    # registrations), and then collects the package names that are new.  For
+    # each new package it gathers the registered versions and sorts them in
+    # descending order using [package vcompare].  The result is a list of
+    # two-element entries, each pairing a package name with its
+    # descending-ordered version list.
+    #
+    # Tricky/security details: this is meant to be used with the locked-down
+    # interpreter produced by [createInterp]; sourcing an index file there is
+    # how untrusted index files are inspected safely.  It uses the hidden
+    # source command precisely because, in a safe interpreter, source is hidden
+    # rather than exposed.  Only newly added packages are reported, so packages
+    # already present before the source are ignored.
+    #
+    # Arguments:
+    #   interp   -- The interpreter (typically a sandbox from [createInterp]) in
+    #               which to source the file.
+    #   fileName -- The package index file to source.
+    #
+    # Results:
+    #   A list of two-element entries, each containing a package name and its
+    #   versions in descending order.  Empty lists may result when nothing new
+    #   is registered.  A script error may be raised if sourcing fails.
+    # </help>
+
     set result [list]
 
     set oldPackageNames [interp eval $interp [list package names]]
@@ -1696,6 +2889,40 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       name to read.  This procedure may raise script errors.
   #
   proc extractVersionsFromFile { fileName } {
+    # <help>
+    # This procedure extracts package version information from a local file,
+    # supporting both plain VERSION files and package index files.  It exists
+    # so that the higher-version check can compare the version offered by the
+    # server against the version already installed locally, regardless of which
+    # form the version information takes.
+    #
+    # How it works: it switches on the file's leaf name.  A file named VERSION
+    # is read and its trimmed contents are returned as a single-element list.
+    # A file named pkgIndex.eagle or pkgIndex.tcl is evaluated in a freshly
+    # created sandbox interpreter (via [createInterp]) and its newly registered
+    # versions are obtained via [getIfNeededVersions]; if the sandbox cannot be
+    # created the failure is logged and an empty list is used.  The sandbox
+    # interpreter is always deleted afterward.
+    #
+    # Tricky/security details: index-file handling deliberately runs inside the
+    # locked-down sandbox so that an untrusted downloaded index file cannot do
+    # harm while its version data is read.  The sandbox interpreter is cleaned
+    # up in all cases.  For file names that are neither VERSION nor a known
+    # index file, the [switch] has no matching branch, so the procedure returns
+    # the empty string (callers commonly index element zero of the result, so
+    # they should tolerate an empty result).
+    #
+    # Arguments:
+    #   fileName -- The local file to extract version information from; behavior
+    #               depends on its leaf name as described above.
+    #
+    # Results:
+    #   For a VERSION file, a single-element list with the version string.  For
+    #   an index file, the list-of-entries produced by [getIfNeededVersions]
+    #   (possibly empty).  For other names, the empty string.  A script error
+    #   may be raised while reading or evaluating.
+    # </help>
+
     switch -exact -- [file tail $fileName] {
       VERSION {
         return [list [string trim [readFile $fileName]]]
@@ -1745,6 +2972,54 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #
   # <public>
   proc checkForHigherVersion { language version platform packageName usePgp } {
+    # <help>
+    # This procedure determines whether the package file server offers a higher
+    # version of a package than the one currently installed locally.  It exists
+    # to drive update decisions -- callers use it to learn whether downloading
+    # a newer version is warranted.
+    #
+    # How it works: it validates the package name, language/version (learning
+    # whether this is the client itself), and platform.  It creates a unique
+    # temporary directory and, depending on whether the target is the client or
+    # an ordinary package, selects either the client directory or the verified
+    # persistent root as the local comparison base.  It then tries, in order, a
+    # set of candidate version-bearing files (VERSION, then the Eagle and Tcl
+    # package index files).  For the first candidate that downloads
+    # successfully via [downloadOneFile], it optionally also downloads the
+    # corresponding ".asc" OpenPGP signature (when usePgp is set), compares the
+    # downloaded version against the local file's version using [package
+    # vcompare], cleans up the temporary directory, and returns whether the
+    # remote version is strictly higher.  If none of the candidate files can be
+    # downloaded, it raises an error.
+    #
+    # Tricky/security details: when usePgp is true the downloaded version file
+    # is accompanied by its OpenPGP signature so that [downloadOneFile] can
+    # verify it; with usePgp false no signature verification occurs and the
+    # comparison rests on unverified data.  Version extraction for index files
+    # is performed in a sandbox (see [extractVersionsFromFile]), so untrusted
+    # index content is not executed in the real interpreter.  The temporary
+    # directory is removed before returning on the success path (note: on the
+    # error path it may be left behind).  Platform may be auto-detected, which
+    # itself performs a network download (see [verifyPlatform]).
+    #
+    # Arguments:
+    #   language    -- "eagle", "tcl", or "client" (empty string treated as
+    #                  Eagle).
+    #   version     -- The version allowed for the language (see
+    #                  [verifyLanguageAndVersion]).
+    #   platform    -- The platform, or empty string to auto-detect.
+    #   packageName -- The package's directory name relative to the
+    #                  language/version directory; may be empty.
+    #   usePgp      -- Boolean; when non-zero, download and verify the OpenPGP
+    #                  signature for the version file.
+    #
+    # Results:
+    #   Non-zero (true) if a strictly higher version is available remotely;
+    #   otherwise zero (false).  A script error is raised on validation
+    #   failure, signature failure, or when no supported version file can be
+    #   downloaded.
+    # </help>
+
     variable clientDirectory
     variable persistentRootDirectory
 
@@ -1808,6 +3083,34 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       be returned.
   #
   proc guessPackageNameFromFileNames { language fileNames } {
+    # <help>
+    # This procedure infers a package name from a list of the package's file
+    # names.  It exists for the common case where a caller knows the files to
+    # download but not the package directory name; since every package must
+    # contain a package index file, the directory holding that index reveals
+    # the package name.
+    #
+    # How it works: it determines the index file name for the language via
+    # [getPackageIndexFileName].  If the language supports one, it scans the
+    # provided file names for one whose leaf name equals the index file name;
+    # the leaf name of that file's containing directory is returned as the
+    # package name.
+    #
+    # Tricky details: this relies on the convention that the package index file
+    # sits directly in the package's directory.  If no file matches the index
+    # name (or the language has no index file), the empty string is returned to
+    # signal "could not determine".
+    #
+    # Arguments:
+    #   language  -- "eagle", "tcl", or "client" (empty string treated as
+    #                Eagle); selects the index file name to look for.
+    #   fileNames -- The list of file names to inspect.
+    #
+    # Results:
+    #   The guessed package name, or the empty string if it cannot be
+    #   determined.
+    # </help>
+
     set packageIndexFileNameOnly [getPackageIndexFileName $language]
 
     if {[string length $packageIndexFileNameOnly] > 0} then {
@@ -1842,6 +3145,54 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       needs to be verified for the downloaded file.
   #
   proc downloadAllPlatforms { language version packageName fileNames usePgp } {
+    # <help>
+    # This procedure downloads the server manifest and returns the set of
+    # platforms for which the specified package is available.  It exists to
+    # support automatic platform selection (see [verifyPlatform]) by revealing
+    # which platform-specific directories actually exist for a package on the
+    # server.
+    #
+    # How it works: it validates the package name and language/version, stages
+    # a temporary directory, and downloads the manifest from the configured
+    # platforms URI (after expanding the URI template via [subst]) into a local
+    # file -- crucially calling [downloadOneUriToFile] with the force-PGP flag
+    # set true, because all manifests on the server are expected to be OpenPGP
+    # signed.  It then reads the verified manifest, splits it into lines, and
+    # builds a glob pattern from the language, version, and (possibly guessed)
+    # package name; client files and ordinary package files use different path
+    # layouts, so the pattern and the path-component index differ accordingly.
+    # For each manifest line beginning with the file marker that matches the
+    # pattern, it extracts the platform directory component and accumulates the
+    # distinct values.  The temporary directory is removed and a sorted, unique
+    # platform list is returned.
+    #
+    # Tricky/security details: the manifest download forces OpenPGP
+    # verification (forcePgp true) regardless of the usePgp argument's effect
+    # elsewhere, so the platform list is derived from signed, verified data --
+    # an important integrity property, since platform selection ultimately
+    # influences which binaries get fetched.  Note, however, that verification
+    # still only happens when usePgp is also honored by the underlying download
+    # path; callers wanting verified platform data should pass usePgp true.
+    # When the package name is empty it is guessed from the file names via
+    # [guessPackageNameFromFileNames], which widens or narrows the match.  The
+    # manifest is parsed line-by-line using Fossil's textual manifest format.
+    #
+    # Arguments:
+    #   language    -- "eagle", "tcl", or "client" (empty string treated as
+    #                  Eagle).
+    #   version     -- The version allowed for the language.
+    #   packageName -- The package directory name; may be empty (then guessed).
+    #   fileNames   -- The list of file names, used to guess the package name
+    #                  when it is empty.
+    #   usePgp      -- Boolean controlling whether the OpenPGP verification of
+    #                  the manifest download is actually performed.
+    #
+    # Results:
+    #   A sorted, de-duplicated list of platform names available for the
+    #   package.  A script error is raised on validation failure, download
+    #   failure, or signature failure.
+    # </help>
+
     variable baseUri
     variable branchName
     variable platformsUri
@@ -1946,6 +3297,45 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #       the downloaded file.  The return value is undefined.
   #
   proc downloadOneUriToFile { localFileName uri usePgp forcePgp } {
+    # <help>
+    # This procedure downloads a single URI from the package file server,
+    # writes the response to a local file, and optionally verifies its OpenPGP
+    # signature.  It is the common building block beneath the higher-level
+    # download procedures, pairing the transport step with the (optional)
+    # integrity step in one place.
+    #
+    # How it works: it fetches the URI's contents with [getPackageFile] and
+    # writes them to the local file with [writeFile].  Then, if usePgp is true,
+    # it calls [maybeVerifyOpenPgpSignature] on the written file, passing along
+    # forcePgp.  That helper verifies when forcePgp is true or when the file
+    # appears (by name) to be a signature file, and raises an error on a bad or
+    # unverifiable signature.
+    #
+    # Tricky/security details: this is the seam where transport and trust meet.
+    # The file is written to disk before verification; if verification later
+    # fails the error propagates, but the (untrusted) file has already been
+    # written, so callers must treat a failed call as having produced a
+    # possibly-bad file and not consume it.  Verification is entirely opt-in via
+    # usePgp -- with usePgp false the downloaded content is accepted without any
+    # signature check, resting solely on transport security.  The forcePgp flag
+    # is how a caller demands verification of a file that would not be
+    # recognized as a signature by name alone (used, for example, for signed
+    # manifests).
+    #
+    # Arguments:
+    #   localFileName -- The local file name to write the downloaded data to.
+    #   uri           -- The fully qualified package file server URI to fetch.
+    #   usePgp        -- Boolean; when non-zero, perform OpenPGP verification of
+    #                    the downloaded file.
+    #   forcePgp      -- Boolean; when non-zero, verify even if the file does
+    #                    not look (by name) like a signature file.  Only
+    #                    consulted when usePgp is non-zero.
+    #
+    # Results:
+    #   The result is unspecified on success.  A script error is raised on
+    #   download failure, write failure, or signature verification failure.
+    # </help>
+
     #
     # NOTE: Then, in one step, download the URI from the package file
     #       server and write it to the specified local file.
@@ -1988,6 +3378,50 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #
   proc downloadOneFile {
           language version platform fileName localFileName usePgp } {
+    # <help>
+    # This procedure downloads a single named package file from the package
+    # file server to a local file, building the correct server-relative path
+    # from the language, version, and platform, and optionally verifying its
+    # OpenPGP signature.  It is the per-file download primitive used by the
+    # version check and the multi-file download driver.
+    #
+    # How it works: it validates the language/version (learning whether this is
+    # the client) and the platform, then composes the server-relative file name
+    # by joining the language, version, platform, and the given relative file
+    # name.  For files that are not part of the client package it additionally
+    # nests them under the "packages" subdirectory.  It expands the download
+    # URI template via [subst] (interpolating and escaping the file name) and
+    # then delegates to [downloadOneUriToFile] to fetch the URI, write the
+    # local file, and optionally verify.  Note it passes forcePgp false, so
+    # signature verification of a data file happens only when the file itself
+    # is recognized as a signature file.
+    #
+    # Tricky/security details: when an OpenPGP signature file (".asc") is being
+    # downloaded, the corresponding data file is assumed to have already been
+    # downloaded, since OpenPGP needs both files present to verify.  The
+    # client-versus-package distinction governs the on-server path layout and
+    # therefore which file is fetched; misclassification would target the wrong
+    # path.  As always, with usePgp false no verification occurs.
+    #
+    # Arguments:
+    #   language      -- "eagle", "tcl", or "client" (empty string treated as
+    #                    Eagle).
+    #   version       -- The version allowed for the language.
+    #   platform      -- The platform, or empty string to auto-detect (which
+    #                    triggers a network query; see [verifyPlatform]).
+    #   fileName      -- The file name relative to the language/version
+    #                    directory on the server.
+    #   localFileName -- The local file name to write the downloaded data to.
+    #   usePgp        -- Boolean; when non-zero, verify the OpenPGP signature of
+    #                    the downloaded file (only effective when the file is a
+    #                    signature file, since forcePgp is false here).
+    #
+    # Results:
+    #   The result is the value of the underlying [downloadOneUriToFile] call
+    #   (unspecified; invoked for effect).  A script error is raised on
+    #   validation, download, or signature failure.
+    # </help>
+
     variable baseUri
     variable branchName
     variable downloadUri
@@ -2053,6 +3487,72 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #
   # <public>
   proc downloadFiles { language version platform fileNames options } {
+    # <help>
+    # This procedure is the main public entry point for downloading a set of
+    # package files, optionally verifying them, persisting them to permanent
+    # storage, and wiring the resulting directories into the auto-path.  It
+    # exists to perform a complete, policy-driven package install/download in a
+    # single call, and it ties together nearly every other procedure in the
+    # toolset.
+    #
+    # How it works: it reads boolean options from the supplied options
+    # dictionary -- whether to persist files (-persistent), overwrite existing
+    # persistent files (-overwrite), verify OpenPGP signatures (-usePgp),
+    # modify the auto-path (-useAutoPath), and allow updates of existing files
+    # (-allowUpdate).  It validates the language/version (learning whether this
+    # is the client) and the platform, and stages a unique temporary directory.
+    # For each requested file it insists the name be relative with directory
+    # parts (erroring otherwise), computes the temporary and persistent target
+    # directories, refuses to clobber an already-staged temporary file, and --
+    # when persisting and not overwriting -- skips files that already exist in
+    # the persistent location.  It downloads each file via [downloadOneFile]
+    # and, when verification is requested and the file is not itself a
+    # signature, also downloads the matching ".asc" signature so verification
+    # can occur.  It then copies staged files into their persistent locations
+    # (using a forced overwrite for client files or when updates are allowed),
+    # removes the temporary tree, and for native Tcl maybe creates the root
+    # package index.  Finally, when -useAutoPath is set, it adds the relevant
+    # directories (the persistent root for the Tcl root-index case, or each
+    # download directory that actually contains a package index file) to the
+    # language's auto-path, and returns the list of directories used.
+    #
+    # Tricky/security details: this procedure can write into and execute from
+    # the persistent library path, so it is the most security-sensitive in the
+    # toolset.  Signature verification is only performed when -usePgp is set;
+    # without it, files are downloaded and persisted with no integrity check
+    # beyond transport security.  Persistence is forced not only by -persistent
+    # but also implicitly when the client is running under the installer tool
+    # (the viaInstall flag).  Client files are always copied with forced
+    # overwrite (to allow self-update), and -allowUpdate extends forced
+    # overwrite to ordinary packages -- so an attacker who can influence what
+    # is downloaded could, with these options, replace installed files.  Adding
+    # a directory to the auto-path makes its packages auto-loadable, so only
+    # trusted content should ever reach this stage.  Relative-path enforcement
+    # on each file name is a guard against escaping the intended directories.
+    #
+    # Arguments:
+    #   language  -- "eagle", "tcl", or "client" (empty string treated as
+    #                Eagle).
+    #   version   -- The version allowed for the language.
+    #   platform  -- The platform, or empty string to auto-detect (which
+    #                performs a network query; see [verifyPlatform]).
+    #   fileNames -- A well-formed list of relative file names to download,
+    #                each relative to the language/version directory on the
+    #                server.
+    #   options   -- A dictionary of name/value options: -persistent,
+    #                -overwrite, -usePgp, -useAutoPath, and -allowUpdate, each
+    #                interpreted as a boolean.  Unrecognized options are
+    #                ignored.
+    #
+    # Results:
+    #   The list of directories that were used for the downloaded files (the
+    #   persistent directories when persisting, otherwise the temporary
+    #   directories), de-duplicated; this is also the set considered for the
+    #   auto-path.  A script error is raised on bad file names, validation
+    #   failure, an existing temporary file, download failure, or signature
+    #   failure.
+    # </help>
+
     variable clientDirectory
     variable persistentRootDirectory
     variable viaInstall
@@ -2279,6 +3779,50 @@ set dir $pkgd(savedDir); unset -nocomplain pkgd
   #
   # <public>
   proc maybeAddTemporaryPackagesToAutoPath { language options {pattern ""} } {
+    # <help>
+    # This procedure scans the temporary download area for staged (not yet
+    # persisted) package directories and adds the matching ones to the
+    # auto-path of the given language.  It exists so that packages downloaded
+    # only to temporary storage can still be made loadable for the current
+    # session without persisting them.
+    #
+    # How it works: it determines the language's package index file name, then
+    # globs the temporary root for the well-known per-download directories and,
+    # within each, their immediate subdirectories (which are treated as
+    # package directories whose leaf name is the package name).  For each
+    # candidate not already handled, and matching the optional pattern against
+    # the directory's leaf name, and containing the expected index file (when
+    # the language has one), it calls [maybeAddToAutoPath]; directories
+    # actually added are recorded (and optionally logged) and returned.  An
+    # empty pattern matches all candidates.  The options dictionary is accepted
+    # for forward compatibility but no options are currently supported.
+    #
+    # Tricky/SECURITY details: this is the most explicitly dangerous procedure
+    # in the toolset.  It adds directories from the shared local temporary area
+    # to the auto-path, from which their packages can be auto-loaded and
+    # executed.  It is therefore SAFE ONLY IF the local temporary directory is
+    # writable solely by applications the current user implicitly trusts.  On
+    # any platform where the temporary area is world-writable (or otherwise
+    # writable by untrusted processes), an attacker could plant a malicious
+    # package there and have it loaded -- so, per the in-line warning, THIS
+    # PROCEDURE MUST NOT BE USED in that situation.  The directory-name-derived
+    # package names and the well-known temporary prefixes are conventions this
+    # scan relies upon.
+    #
+    # Arguments:
+    #   language -- "eagle" or "tcl"; selects the index file name and the
+    #               target auto-path.
+    #   options  -- A dictionary of name/value options; currently none are
+    #               supported.
+    #   pattern  -- Optional glob pattern matched against each candidate package
+    #               directory's leaf name; the empty string (default) matches
+    #               all candidates.
+    #
+    # Results:
+    #   The list of temporary package directories that were actually added to
+    #   the auto-path (possibly empty).  A script error may be raised.
+    # </help>
+
     variable temporaryRootDirectory
     variable verboseTemporaryDirectory
 

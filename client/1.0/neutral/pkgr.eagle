@@ -145,6 +145,52 @@ namespace eval ::PackageRepository {
   #
   if {[llength [info commands ::apply]] == 0} then {
     proc ::apply { lambdaExpr args } {
+      # <help>
+      # This procedure provides a fallback implementation of the standard
+      # [apply] command for interpreters (typically older Tcl, or Eagle
+      # builds) that do not already supply one; it is only defined when no
+      # ::apply command is found.  It exists so that the rest of this package
+      # can rely on anonymous-procedure (lambda) semantics regardless of the
+      # host interpreter.  It evaluates a lambda expression -- a list of two
+      # or three elements consisting of an argument-spec, a body, and an
+      # optional namespace -- as if it were a one-shot procedure, passing any
+      # extra arguments to it.
+      #
+      # How it works: the lambda expression is validated to contain exactly
+      # two or three elements, then split into its argument-spec, body, and
+      # (optional) namespace parts.  A unique, throwaway procedure name is
+      # generated (using [getUniqueSuffix] at a high paranoia level to minimize
+      # collisions) in the requested namespace, or the global namespace when
+      # none is given.  A small prologue is prepended to the body that renames
+      # the temporary procedure to the empty string -- this deletes the
+      # procedure as its very first action, so it is self-cleaning even if the
+      # body later raises an error or returns early.  The temporary procedure
+      # is then invoked, via uplevel, with the caller-supplied extra arguments
+      # and its result is returned.
+      #
+      # Security and tricky details: the lambda body is arbitrary code that is
+      # executed with the full privileges of the interpreter; callers must
+      # treat any lambda expression they pass here as trusted code, exactly as
+      # with the native [apply].  The self-deleting prologue means the
+      # temporary command does not linger in the namespace, avoiding name
+      # pollution and information leaks.  This implementation is shared,
+      # verbatim, with the WARNING above with "init.eagle"; both copies must be
+      # kept in sync.
+      #
+      # Arguments:
+      #   lambdaExpr -- A list of two or three elements: the argument-spec
+      #                 (in [proc] form), the body script, and an optional
+      #                 target namespace name.  Anything other than two or
+      #                 three elements is rejected with a script error.
+      #   args       -- Zero or more additional values passed, in order, as the
+      #                 actual arguments to the lambda when it is invoked.
+      #
+      # Results:
+      #   The result of evaluating the lambda body.  A script error is raised
+      #   if lambdaExpr is not a valid two- or three-element lambda expression,
+      #   or if evaluation of the body itself raises an error.
+      # </help>
+
       set length [llength $lambdaExpr]
 
       if {$length < 2 || $length > 3} {
@@ -171,6 +217,32 @@ namespace eval ::PackageRepository {
   #       set back to their default values.
   #
   proc setupRepositoryServerVars { force } {
+    # <help>
+    # This procedure establishes the default values for the server-relative
+    # URN configuration parameters used by the package repository client,
+    # namely the lookup URN ("pkgr_lookup") and the submit URN
+    # ("pkgr_submit").  These URNs are later combined with the configured base
+    # URI to form the full lookup and submit endpoints.  It exists so that the
+    # client always has well-defined endpoint names, and so they can be reset
+    # to known defaults on demand (for example, after a custom server Id has
+    # been applied via [useServerId]).
+    #
+    # How it works: each URN is stored in a namespace variable.  When the force
+    # argument is true, the variable is unconditionally overwritten with its
+    # default; otherwise the default is only assigned when the variable does
+    # not already exist, so any value previously configured by the user or by
+    # a settings file is preserved.
+    #
+    # Arguments:
+    #   force -- A boolean.  When true, existing lookup and submit URN values
+    #            are discarded and reset to their built-in defaults; when
+    #            false, only currently undefined URNs are initialized.
+    #
+    # Results:
+    #   The result is unspecified; this procedure is called for its side
+    #   effect of (re)initializing the URN namespace variables.
+    # </help>
+
     #
     # NOTE: The URN, relative to the base URI, where the package repository
     #       server may be contacted to lookup packages.
@@ -199,6 +271,41 @@ namespace eval ::PackageRepository {
   #       set back to their default values.
   #
   proc setupRepositoryUriVars { force } {
+    # <help>
+    # This procedure establishes the default values for the URI configuration
+    # parameters used by the package repository client: the base URI
+    # (defaulting to the HTTPS endpoint "https://tcl.to/r") and the lookup and
+    # submit URI templates, which are stored as literal, unexpanded strings
+    # that reference the baseUri, lookupUrn, and submitUrn variables.  Those
+    # templates are resolved later (via [subst]) by [getLookupBaseUri] and
+    # [getSubmitBaseUri] so that changes to the base URI or URNs are picked up
+    # automatically.  It exists to give the client a complete, secure-by-
+    # default endpoint configuration and to allow that configuration to be
+    # reset to known values on demand.
+    #
+    # How it works: each value is stored in a namespace variable.  When force
+    # is true, the variables are unconditionally overwritten with their
+    # defaults; otherwise each default is assigned only if the variable does
+    # not already exist, preserving any user- or settings-supplied overrides.
+    #
+    # Security details: the default base URI uses HTTPS, which is essential
+    # because downloaded package metadata and scripts are trusted by the
+    # client; overriding the base URI with a plain-HTTP or untrusted host
+    # undermines the transport-level protection and should be done with care.
+    # The lookup and submit URI defaults are deliberately stored as literal
+    # templates (dollar-sign references kept intact) rather than pre-expanded
+    # values.
+    #
+    # Arguments:
+    #   force -- A boolean.  When true, existing base, lookup, and submit URI
+    #            values are discarded and reset to their built-in defaults;
+    #            when false, only currently undefined values are initialized.
+    #
+    # Results:
+    #   The result is unspecified; this procedure is called for its side
+    #   effect of (re)initializing the URI namespace variables.
+    # </help>
+
     #
     # NOTE: The base URI used to build the URIs for the package file server.
     #
@@ -236,6 +343,34 @@ namespace eval ::PackageRepository {
   #
   # <internal>
   proc formatExecArgument { value } {
+    # <help>
+    # This procedure formats a single string value for safe use as an argument
+    # to the [exec] command.  It exists to paper over a behavioral difference
+    # between Eagle and Tcl: under Eagle, an argument that contains spaces
+    # must be wrapped in double quotes so that it is passed to the external
+    # process as one argument, whereas under Tcl the [exec] command already
+    # treats each argument as a single word and no quoting is required.  It is
+    # used throughout this package when building OpenPGP and Harpy command
+    # lines that embed file names which may contain spaces.
+    #
+    # How it works: under Eagle the value is returned surrounded by literal
+    # double-quote characters; under Tcl the value is returned verbatim.
+    #
+    # Security and tricky details: the quoting performed here is intentionally
+    # simple and does NOT escape embedded double-quote characters or other
+    # shell/argument metacharacters within the value.  It is intended for
+    # internal, controlled inputs (such as normalized, native file names),
+    # not as a general-purpose shell-escaping mechanism; callers should not
+    # rely on it to neutralize hostile input.
+    #
+    # Arguments:
+    #   value -- The string to format as a single [exec] argument.
+    #
+    # Results:
+    #   Under Eagle, the value wrapped in double quotes; under Tcl, the value
+    #   unchanged.
+    # </help>
+
     if {[isEagle]} then {
       return [appendArgs \" $value \"]
     } else {
@@ -250,6 +385,26 @@ namespace eval ::PackageRepository {
   #       package.
   #
   proc formatPackageName { package version } {
+    # <help>
+    # This procedure builds a human-readable package name, optionally including
+    # a version, for use in log messages and diagnostics.  It exists to give
+    # consistent, readable package identifiers across the client's logging.
+    #
+    # How it works: the package name and version are joined with a single
+    # separating space and the result is trimmed; when the version is empty,
+    # the trailing space is removed by the trim, yielding just the package
+    # name.
+    #
+    # Arguments:
+    #   package -- The package name.
+    #   version -- The package version, or an empty string when no version is
+    #              applicable.
+    #
+    # Results:
+    #   The package name, followed by a space and the version when a version
+    #   is supplied; otherwise just the package name.
+    # </help>
+
     return [string trim [appendArgs $package " " $version]]
   }
 
@@ -260,6 +415,30 @@ namespace eval ::PackageRepository {
   #       result argument is the script result or error message.
   #
   proc formatResult { code result } {
+    # <help>
+    # This procedure renders a Tcl/Eagle return code together with its result
+    # value into a single readable string for logging and error reporting.  It
+    # exists so that the outcome of a [catch] (the numeric completion code and
+    # the associated result or error message) can be recorded in a consistent,
+    # self-describing form.
+    #
+    # How it works: the numeric completion code is mapped to a descriptive
+    # word -- 0 to "ok", 1 to "error", 2 to "return", 3 to "break", 4 to
+    # "continue" -- with any other value rendered as "unknown(N)" where N is
+    # the code.  When the result string is non-empty, the output combines the
+    # code word with the result value (the result is list-quoted so it remains
+    # a single, unambiguous token); when the result is empty, only the code
+    # word is returned.
+    #
+    # Arguments:
+    #   code   -- An integer completion code, such as one produced by [catch].
+    #   result -- The associated script result or error message; may be empty.
+    #
+    # Results:
+    #   A string of the form "code WORD, result VALUE" when a result is
+    #   present, or just the code word when the result is empty.
+    # </help>
+
     switch -exact -- $code {
       0 {set codeString ok}
       1 {set codeString error}
@@ -282,6 +461,30 @@ namespace eval ::PackageRepository {
   #       log.  The string argument is the content of the message to emit.
   #
   proc pkgLog { string } {
+    # <help>
+    # This procedure emits a single diagnostic message to the package
+    # repository client log.  It exists to provide a uniform, prefixed logging
+    # channel for the client's activity (downloads, verification outcomes,
+    # configuration changes, and errors) that is useful for auditing the
+    # behavior of this security-sensitive code.
+    #
+    # How it works: the message is written via [tclLog], prefixed with the
+    # current process id, the current wall-clock time in seconds, and the
+    # literal tag "pkgr", all separated by " : ".  The entire operation is
+    # wrapped in [catch] so that a logging failure can never propagate an
+    # error into, or otherwise disrupt, the caller.
+    #
+    # Tricky details: because logging is best-effort and silently swallows any
+    # failure, callers must not rely on a message actually being recorded.
+    #
+    # Arguments:
+    #   string -- The text of the message to log.
+    #
+    # Results:
+    #   The result is unspecified; this procedure is called for its logging
+    #   side effect and never raises an error.
+    # </help>
+
     catch {
       tclLog [appendArgs [pid] " : " [clock seconds] " : pkgr : " $string]
     }
@@ -293,6 +496,25 @@ namespace eval ::PackageRepository {
   #       the string to check.
   #
   proc stringIsList { value } {
+    # <help>
+    # This procedure determines whether a string is a syntactically valid list
+    # and returns a boolean.  It exists to provide a single, portable list-
+    # validity test that works across Eagle and the various Tcl versions this
+    # package may run under, since the native [string is list] subcommand is
+    # not available everywhere.
+    #
+    # How it works: under Eagle (and under Tcl 8.5 or newer) it simply defers
+    # to [string is list].  Under older Tcl it falls back to attempting
+    # [llength] on the value inside a [catch]: success means the value parsed
+    # as a list (returning true), failure means it did not (returning false).
+    #
+    # Arguments:
+    #   value -- The string to test for list validity.
+    #
+    # Results:
+    #   A boolean: true when the value is a well-formed list, false otherwise.
+    # </help>
+
     if {[isEagle]} then {
       return [string is list $value]
     } else {
@@ -316,6 +538,41 @@ namespace eval ::PackageRepository {
   #
   # <public>
   proc isHarpyCertificate { value } {
+    # <help>
+    # This procedure performs a lightweight, structural check to decide whether
+    # a string LOOKS LIKE a Harpy (script) certificate, returning a boolean.
+    # Harpy certificates are the XML documents used by the Harpy package to
+    # carry the digital signature over an Eagle script; this client uses them
+    # when verifying and signing package scripts.  The procedure exists to let
+    # callers quickly distinguish a Harpy certificate blob from, say, an
+    # OpenPGP signature or arbitrary text, before handing it to the real
+    # verification machinery.
+    #
+    # How it works: the value is trimmed of surrounding whitespace, then three
+    # conditions must all hold -- the standard XML declaration must appear at
+    # the very start of the string (offset 0), the Harpy Certificate element
+    # opening tag (in the "https://eagle.to/2011/harpy" namespace) must appear
+    # somewhere in the string, and the closing Certificate tag must end exactly
+    # at the end of the string (its first occurrence must begin 14 characters
+    # from the end, 14 being the length of that closing tag).  An empty string
+    # is also treated as a (degenerate) match.
+    #
+    # Security details: this is ONLY a cheap format/shape heuristic; it does
+    # NOT validate the XML, does NOT check the certificate's contents, and most
+    # importantly does NOT verify any signature or establish any trust.  A
+    # value passing this test must still be cryptographically verified before
+    # the associated script is trusted -- a malicious actor can trivially craft
+    # a string that satisfies these substring checks.  Treat a true result as
+    # "this is plausibly a Harpy certificate", never as "this is authentic".
+    #
+    # Arguments:
+    #   value -- The candidate string to inspect.
+    #
+    # Results:
+    #   A boolean: true when the (trimmed) value is empty or matches the
+    #   expected Harpy certificate envelope shape, false otherwise.
+    # </help>
+
     set value [string trim $value]
     set length [string length $value]
 
@@ -340,6 +597,37 @@ namespace eval ::PackageRepository {
   #
   # <public>
   proc isOpenPgpSignature { value } {
+    # <help>
+    # This procedure performs a lightweight, structural check to decide whether
+    # a string LOOKS LIKE an ASCII-armored OpenPGP signature, returning a
+    # boolean.  This client uses detached OpenPGP signatures as one of the
+    # mechanisms for authenticating package scripts; this procedure lets
+    # callers quickly classify a blob before handing it to the real OpenPGP
+    # verification machinery.
+    #
+    # How it works: the value is trimmed of surrounding whitespace, then two
+    # conditions must both hold -- the literal "-----BEGIN PGP SIGNATURE-----"
+    # armor header must appear at the very start of the string (offset 0), and
+    # the "-----END PGP SIGNATURE-----" footer must end exactly at the end of
+    # the string (its first occurrence must begin 27 characters from the end,
+    # 27 being the length of that footer).  An empty string is also treated as
+    # a (degenerate) match.
+    #
+    # Security details: this is ONLY a cheap format/shape heuristic; it does
+    # NOT parse the armor, does NOT validate the signature packets, and does
+    # NOT verify the signature or establish any trust whatsoever.  A value
+    # passing this test must still be cryptographically verified (see
+    # [verifyOpenPgpSignature]) before the signed content is trusted; an attacker
+    # can trivially produce a string that satisfies these checks.
+    #
+    # Arguments:
+    #   value -- The candidate string to inspect.
+    #
+    # Results:
+    #   A boolean: true when the (trimmed) value is empty or is wrapped by the
+    #   expected OpenPGP signature armor header and footer, false otherwise.
+    # </help>
+
     set value [string trim $value]
     set length [string length $value]
 
@@ -361,6 +649,38 @@ namespace eval ::PackageRepository {
   #
   # <public>
   proc getFileTempDirectory { {envVarName ""} } {
+    # <help>
+    # This procedure returns the fully qualified path of the directory into
+    # which the client should write temporary files (for example, downloaded
+    # package data, signatures, and certificates awaiting verification).  It
+    # exists to centralize the policy for locating a writable scratch
+    # directory in a cross-platform way.
+    #
+    # How it works: it consults a series of environment variables in order and
+    # returns the first one that is set -- first an optional caller-supplied
+    # variable name (when non-empty), then TEMP, then TMP.  If none is set, it
+    # raises a script error instructing the user to define an appropriate
+    # variable; the variable named in that error is the caller-supplied one if
+    # given, otherwise TEMP on Windows and TMP elsewhere.
+    #
+    # Security and tricky details: the returned directory is taken verbatim
+    # from the environment and is NOT validated for existence, ownership, or
+    # safe permissions.  Because temporary files here can hold security-
+    # sensitive material (package scripts and signatures) in transit, the
+    # chosen directory should be private to the user; a world-writable or
+    # attacker-controlled temporary directory could enable tampering or
+    # symlink-style attacks.  No file is created by this procedure.
+    #
+    # Arguments:
+    #   envVarName -- Optional. The name of an additional environment variable
+    #                 to consult before TEMP and TMP; when empty, only TEMP and
+    #                 TMP are considered.
+    #
+    # Results:
+    #   The value of the first matching environment variable (a directory
+    #   path).  A script error is raised when no suitable variable is set.
+    # </help>
+
     global env
 
     if {[string length $envVarName] > 0 && \
@@ -391,6 +711,36 @@ namespace eval ::PackageRepository {
   #       no arguments.
   #
   proc getFileTempName {} {
+    # <help>
+    # This procedure returns the fully qualified name of a unique temporary
+    # file that the client can use as scratch storage.  It exists to provide a
+    # portable way to obtain a non-colliding temporary path across Eagle and
+    # older Tcl.
+    #
+    # How it works: under Eagle it simply defers to the native [file tempname].
+    # Under Tcl it determines a temporary directory (consulting the optional
+    # PKGR_TEMP environment variable first, via [getFileTempDirectory]), then
+    # seeds a counter by XORing the process id with a random value and loops,
+    # formatting candidate names like "tclXXXX.tmp", until it finds one that
+    # does not already exist, returning that path.
+    #
+    # Security and tricky details: in the Tcl fallback there is a classic
+    # check-then-use race: the name is chosen because it does not exist at the
+    # moment of the check, but the file is NOT created here, so another process
+    # could create the same path before the caller does.  The seeding uses the
+    # expression engine's rand(), which is NOT cryptographically strong, so the
+    # generated names are predictable; callers handling sensitive content
+    # should rely on a private temporary directory rather than on name
+    # unpredictability.  A script error is raised if a name cannot be produced.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   A fully qualified, currently-unused temporary file path.  A script
+    #   error may be raised if no usable temporary directory is available.
+    # </help>
+
     if {[isEagle]} then {
       return [file tempname]
     } else {
@@ -421,6 +771,47 @@ namespace eval ::PackageRepository {
   #
   # <internal>
   proc probeForOpenPgpInstallation {} {
+    # <help>
+    # This procedure attempts to auto-detect a locally installed OpenPGP
+    # (GnuPG) implementation at well-known default locations and, if found but
+    # not already reachable, prepends its directory to the process PATH so that
+    # subsequent [exec] calls can locate the executable.  It exists to make the
+    # signing and verification features work out-of-the-box on machines where
+    # GnuPG is installed in a standard place but not on the PATH.
+    #
+    # How it works: it first calls [openPgpMustBeInstalled] inside a [catch]; if
+    # that succeeds, OpenPGP is already usable and true is returned
+    # immediately.  Otherwise it requires the configuration variables
+    # openPgpFileNamesOnly (candidate executable names) and
+    # openPgpInstalledDirectories (candidate install directories) to exist,
+    # returning false if either is missing.  On Windows the candidate
+    # directories are taken as sub-paths of the Program Files (x86) or Program
+    # Files location from the environment; on other platforms they are used as
+    # absolute paths.  For each existing candidate directory it looks for any
+    # of the candidate executables, and on the first hit it logs the discovery
+    # and adds that directory to the PATH (via [addToPath]), returning that
+    # call's result.
+    #
+    # Security and tricky details: modifying the process PATH affects how ALL
+    # later external commands are resolved, so the candidate directory lists
+    # must be trustworthy -- an attacker who can influence
+    # openPgpInstalledDirectories or place a malicious "gpg" in a probed
+    # directory could cause a hostile binary to be executed during signing or
+    # verification.  Detection is by file presence only; the binary's
+    # authenticity is not checked here.  This is a best-effort convenience: a
+    # false return simply means OpenPGP was not auto-located, not that it is
+    # unusable if already on the PATH.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   A boolean: true when OpenPGP is already usable, or when an installation
+    #   directory was found and successfully added to the PATH; false when no
+    #   installation could be detected or the required configuration variables
+    #   are absent.
+    # </help>
+
     global env
     variable openPgpFileNamesOnly
     variable openPgpInstalledDirectories
@@ -481,6 +872,42 @@ namespace eval ::PackageRepository {
   #
   # <public>
   proc openPgpMustBeInstalled {} {
+    # <help>
+    # This procedure asserts that a configured, supported OpenPGP (GnuPG)
+    # implementation is actually installed and runnable locally, raising a
+    # script error (with installation guidance) if it is not.  It exists as the
+    # gatekeeper used before any operation that depends on OpenPGP -- signing,
+    # signature verification, or key import -- so those operations fail clearly
+    # and early rather than mysteriously later.  As a side effect, it records
+    # which candidate executable name actually worked.
+    #
+    # How it works: it iterates the candidate executable names in
+    # openPgpFileNamesOnly, running the version-probe command template
+    # openPgpInstalledCommand (resolved with [subst], and under Eagle requiring
+    # a successful exit via -success Success) for each, stopping at the first
+    # one that runs without error.  If one is found, it remembers it in the
+    # openPgpFileNameOnly variable -- initializing it, or logging a change if a
+    # different name had been recorded before.  If none runs, it raises an
+    # error containing instructions for obtaining GnuPG.  Finally, it matches
+    # the probe output against openPgpInstalledPattern and raises an
+    # "unknown or unsupported version" error if it does not match.
+    #
+    # Security and tricky details: this is a fail-closed check -- callers that
+    # wrap it in [catch] (such as [probeForOpenPgpInstallation]) treat any error
+    # as "OpenPGP not available".  The executable that gets run is whatever the
+    # PATH resolves the candidate name to, so PATH integrity matters for
+    # security (see [probeForOpenPgpInstallation]).  The version pattern check
+    # is a guard against unrecognized tools, not a strong authenticity check
+    # of the binary itself.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   An empty string on success.  A script error is raised when no OpenPGP
+    #   executable can be run, or when the detected version is not recognized.
+    # </help>
+
     variable openPgpFileNameOnly
     variable openPgpFileNamesOnly
     variable openPgpInstalledCommand
@@ -569,6 +996,42 @@ namespace eval ::PackageRepository {
   #
   # <public>
   proc verifyOpenPgpSignature { fileName } {
+    # <help>
+    # This procedure verifies a detached OpenPGP (GnuPG) signature contained in
+    # the named file, returning a boolean that is true ONLY when the signature
+    # verifies successfully.  It is one of the core trust primitives of this
+    # client: a true result is what authorizes treating the associated package
+    # script or data as authentic.
+    #
+    # How it works: it requires the openPgpFileNameOnly variable (the detected
+    # OpenPGP executable name, set by [openPgpMustBeInstalled]) to exist,
+    # returning false if it does not.  Under Eagle the file name is formatted
+    # as an [exec] argument and the verify command template openPgpVerifyCommand
+    # is resolved with [subst] and run with -success Success, so a non-zero
+    # process exit causes the surrounding [catch] to report failure.  Under Tcl
+    # the same template is run with standard error redirected into standard
+    # output (2>@1).  Only a clean, error-free run yields true.
+    #
+    # Security details: this procedure is deliberately fail-closed -- ANY
+    # problem (OpenPGP not configured, the external command failing, a non-zero
+    # exit, or any caught error) results in false, i.e. "not verified", never a
+    # silent pass.  It does NOT raise script errors; callers therefore treat a
+    # false return as a verification failure and must refuse to trust the
+    # content in that case.  Trust ultimately rests on the OpenPGP keyring and
+    # trust settings of the underlying GnuPG installation; what counts as a
+    # valid signer is determined there, not here.  Note this verifies the
+    # signature's cryptographic validity per the local keyring -- it does not,
+    # by itself, decide policy such as which keys are acceptable.
+    #
+    # Arguments:
+    #   fileName -- The fully qualified path of the OpenPGP signature file to
+    #               verify.
+    #
+    # Results:
+    #   A boolean: true only when the signature verifies successfully; false in
+    #   all other cases, including when OpenPGP is not configured.
+    # </help>
+
     variable openPgpFileNameOnly
     variable openPgpVerifyCommand
 
@@ -601,6 +1064,35 @@ namespace eval ::PackageRepository {
   #       signature.  There are no arguments.
   #
   proc getOpenPgpPassphraseFile {} {
+    # <help>
+    # This procedure returns the fully qualified path of the file that holds
+    # the OpenPGP passphrase used when CREATING signatures.  It exists to give
+    # the signing path a single, validated source for the passphrase file and
+    # is used only during signing (never during verification).
+    #
+    # How it works: it reads the GPG_PASSPHRASE_FILE environment variable,
+    # normalizes it to an absolute path, and returns it only if that file
+    # exists.  If the variable is set but the file is missing, or if the
+    # variable is not set at all, it raises a descriptive script error.
+    #
+    # Security and tricky details: this path points to a file containing a
+    # secret passphrase that can unlock a signing key, so the file must be
+    # protected with restrictive permissions; this procedure verifies only
+    # that the file EXISTS, not that its ownership or permissions are safe, and
+    # it does not read or expose the passphrase itself.  Because signing
+    # authorizes packages on behalf of a key holder, the configuration of this
+    # file is security-sensitive.  This is fail-closed: a missing variable or
+    # file aborts signing with an error rather than proceeding without a
+    # passphrase.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The normalized path of the existing passphrase file.  A script error
+    #   is raised if GPG_PASSPHRASE_FILE is unset or names a nonexistent file.
+    # </help>
+
     global env
 
     if {[info exists env(GPG_PASSPHRASE_FILE)]} then {
@@ -624,6 +1116,33 @@ namespace eval ::PackageRepository {
   #       this procedure.
   #
   proc dequoteList { list } {
+    # <help>
+    # This procedure returns a copy of the given list in which each element has
+    # at most one pair of surrounding double-quote characters removed.  It
+    # exists to clean up list elements (for example, command-line or
+    # configuration fragments) where values may have been wrapped in double
+    # quotes that should not survive into later processing.
+    #
+    # How it works: it walks the list and, for each element, examines a trimmed
+    # copy; if that trimmed value is at least two characters long and begins
+    # and ends with a double-quote character, the element contributed to the
+    # result is the trimmed value with its first and last characters removed.
+    # Otherwise the element is copied through verbatim (preserving its original
+    # surrounding whitespace).
+    #
+    # Tricky details: only a single outer pair of quotes is stripped, only when
+    # they are the first and last NON-whitespace characters; embedded quotes
+    # and escapes are not interpreted.  The result is always the same length as
+    # the input.  This procedure does not raise script errors.
+    #
+    # Arguments:
+    #   list -- The list whose elements should be de-quoted.
+    #
+    # Results:
+    #   A new list, the same size as the input, with one layer of surrounding
+    #   double quotes removed from each element that has them.
+    # </help>
+
     set result [list]
 
     foreach element $list {
@@ -653,6 +1172,47 @@ namespace eval ::PackageRepository {
   #
   # <internal>
   proc createHarpyCertificate { fileName } {
+    # <help>
+    # This procedure creates a Harpy (script) certificate for the named file by
+    # invoking the Harpy "sign.eagle" tool, returning a boolean that is true
+    # ONLY when signing succeeds.  It exists on the publishing side of the
+    # toolset: a Harpy certificate carries a digital signature over an Eagle
+    # script so that this client can later authenticate it.  It assumes the
+    # Harpy package for Eagle is installed and able to find a valid license
+    # certificate.
+    #
+    # How it works: it builds the native paths to the Harpy "sign.eagle" tool
+    # (under the configured pkgr_harpy_path) and to the script being signed,
+    # and determines a vendor string from the PKGR_VENDOR environment variable
+    # or a built-in default.  Under Eagle it computes the runtime command line
+    # for the current shell, formats the tool name, script name, and vendor as
+    # [exec] arguments, then runs the harpySignCommand template (resolved with
+    # [subst]) requiring a successful exit.  Under Tcl it first ensures Eagle is
+    # loaded into the process (via [makeEagleReady]), derives the EagleShell
+    # runtime command line by querying the loaded assembly's directory, then
+    # runs the same template with standard error folded into standard output.
+    # On failure in either branch it logs a diagnostic (including the formatted
+    # result) and returns false.
+    #
+    # Security details: this procedure GENERATES trust material -- the resulting
+    # certificate is what downstream consumers rely on to authenticate the
+    # script -- so the signing identity (the Harpy license/key and the vendor
+    # string) and the integrity of the tool at pkgr_harpy_path are
+    # security-critical; an attacker who can substitute the signing tool or the
+    # signed file controls what gets vouched for.  It is fail-closed in the
+    # sense that any error yields false rather than a partial or unsigned
+    # success, and it does not raise script errors.  File names are passed
+    # through [formatExecArgument], which provides only minimal quoting (no
+    # metacharacter escaping), so the inputs are expected to be controlled.
+    #
+    # Arguments:
+    #   fileName -- The fully qualified path of the file to be signed.
+    #
+    # Results:
+    #   A boolean: true when the Harpy certificate is created successfully;
+    #   false otherwise (with a logged diagnostic).
+    # </help>
+
     global env
     variable harpySignCommand
     variable pkgr_harpy_path
@@ -728,6 +1288,37 @@ namespace eval ::PackageRepository {
   #
   # <public>
   proc createOpenPgpSignature { fileName } {
+    # <help>
+    # This procedure creates a detached OpenPGP (GnuPG) signature for the named
+    # file, returning a boolean that is true ONLY when signing succeeds.  It is
+    # the OpenPGP counterpart to [createHarpyCertificate] on the publishing side
+    # of the toolset, producing the signature that this client later checks via
+    # [verifyOpenPgpSignature].
+    #
+    # How it works: it requires the openPgpFileNameOnly variable (the detected
+    # OpenPGP executable, set by [openPgpMustBeInstalled]) to exist, returning
+    # false otherwise.  Under Eagle the file name is formatted as an [exec]
+    # argument and the openPgpSignCommand template is resolved with [subst] and
+    # run requiring a successful exit; under Tcl the same template is run with
+    # standard error folded into standard output.  Only a clean run yields
+    # true.
+    #
+    # Security details: this generates trust material using a private signing
+    # key, and the passphrase used to unlock that key is sourced (within the
+    # command template) from the file identified by [getOpenPgpPassphraseFile],
+    # so the signing key and passphrase file are security-critical secrets.  It
+    # is fail-closed -- any error yields false rather than a partial success --
+    # and it does not raise script errors.  File names receive only the minimal
+    # quoting of [formatExecArgument], so inputs are expected to be controlled.
+    #
+    # Arguments:
+    #   fileName -- The fully qualified path of the file to be signed.
+    #
+    # Results:
+    #   A boolean: true when the OpenPGP signature is created successfully;
+    #   false otherwise, including when OpenPGP is not configured.
+    # </help>
+
     global env
     variable openPgpFileNameOnly
     variable openPgpSignCommand
@@ -767,6 +1358,45 @@ namespace eval ::PackageRepository {
   #
   # <internal>
   proc importOpenPgpKeyFile { fileName varName } {
+    # <help>
+    # This procedure imports the OpenPGP (GnuPG) key(s) contained in the named
+    # file into the local keyring, returning a boolean that is true ONLY when
+    # the import appears to have succeeded.  It exists to provision the keys
+    # that signature verification will later rely on, and is intended only for
+    # use from the "pkgr_setup.eagle" tool script; it may be removed in later
+    # versions of this package.
+    #
+    # How it works: it requires the openPgpFileNameOnly variable to exist
+    # (returning false otherwise).  When the caller supplies a non-empty
+    # varName, that caller variable is linked via [upvar] and receives the
+    # captured command output.  Under Eagle the file name is formatted as an
+    # [exec] argument and the openPgpImportCommand template is run with output
+    # and error captured separately (and carriage returns stripped), combining
+    # them into the result; a failed run returns false.  Under Tcl the template
+    # is run with standard error folded into standard output, capturing the
+    # combined text; a failed run returns false.  Finally, the captured output
+    # is matched (line-wise) against openPgpImportPattern, and the procedure
+    # returns true only if that pattern is found.
+    #
+    # Security details: importing a key is a TRUST-ESTABLISHING act -- keys
+    # added to the keyring become eligible to validate signatures, so the key
+    # file's provenance is security-critical and an attacker-supplied key file
+    # could let forged signatures verify.  The success determination is based
+    # on matching expected output text rather than a strong cryptographic
+    # confirmation, so the import pattern must be kept accurate.  It is
+    # fail-closed (any failure or unmatched output yields false) and does not
+    # raise script errors.
+    #
+    # Arguments:
+    #   fileName -- The fully qualified path of the OpenPGP key file to import.
+    #   varName  -- The name of a caller variable to receive the captured
+    #               command output, or an empty string to discard it.
+    #
+    # Results:
+    #   A boolean: true when the import command ran and its output matched the
+    #   expected pattern; false otherwise.
+    # </help>
+
     variable openPgpFileNameOnly
     variable openPgpImportCommand
     variable openPgpImportPattern
@@ -812,6 +1442,24 @@ namespace eval ::PackageRepository {
   #       no arguments.
   #
   proc getLookupVarNamePrefix {} {
+    # <help>
+    # This procedure returns the common prefix used to form the fully qualified
+    # names of the configuration variables that this client may look for in the
+    # global namespace (for example, the API keys variable and the lookup and
+    # submit base-URI override variables).  It exists to keep that naming
+    # convention in one place so configuration lookups stay consistent.
+    #
+    # How it works: it returns the constant string "::pkgr_".  A TODO in the
+    # body notes that these variables currently live in the global namespace
+    # and might be made non-global in the future.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The literal prefix string "::pkgr_".
+    # </help>
+
     return ::pkgr_; # TODO: Make non-global?
   }
 
@@ -829,6 +1477,38 @@ namespace eval ::PackageRepository {
   #
   # <public>
   proc getUniqueSuffix { {paranoia 1} } {
+    # <help>
+    # This procedure returns a name suffix that is intended to be unique to the
+    # running process at the current moment, for use in constructing directory,
+    # variable, or command names that must not collide with anything already
+    # present (notably in the global namespace).  It exists to let the client
+    # mint throwaway names safely; it is also used by the fallback ::apply
+    # implementation above.
+    #
+    # How it works: the suffix always begins with the process id.  When the
+    # paranoia level is greater than zero, the current time in seconds is
+    # appended; when it is greater than one, the current millisecond clicks
+    # value is also appended.  Each component is trimmed of leading and
+    # trailing dash characters.  Higher paranoia therefore yields more
+    # time-varying, and thus more collision-resistant, suffixes.
+    #
+    # Tricky details: this is for UNIQUENESS, not secrecy -- the values are
+    # derived from process id and clocks and are entirely predictable, so the
+    # suffix must not be relied upon as a secret or as cryptographic
+    # randomness.  Even at the highest level uniqueness is best-effort (a body
+    # TODO questions the millisecond component).  This procedure is shared,
+    # per the WARNING above, with "init.eagle"; keep both copies in sync.
+    #
+    # Arguments:
+    #   paranoia -- Optional integer (default 1) selecting how much
+    #               time-varying material to include: 0 for process id only,
+    #               1 to add seconds, 2 or more to also add millisecond clicks.
+    #
+    # Results:
+    #   A string suffix composed of the process id and, depending on the
+    #   paranoia level, time-based components, joined with underscores.
+    # </help>
+
     set result [string trim [pid] -]
 
     if {$paranoia > 0} then {
@@ -854,6 +1534,48 @@ namespace eval ::PackageRepository {
   #
   # <internal>
   proc getApiKeys { {prefix ""} {prefixOnly false} } {
+    # <help>
+    # This procedure returns the list of API keys the client should present
+    # when looking up packages on the repository server, or an empty list when
+    # none are configured.  API keys identify the caller and grant access to
+    # non-public ("owned") packages, so this procedure is the central policy
+    # for resolving those credentials from several possible sources.
+    #
+    # How it works: it builds an ordered list of variable-name prefixes to try.
+    # If the caller passed a non-empty prefix, that is tried first; then, unless
+    # prefixOnly is set, the package's own prefix (from [getLookupVarNamePrefix])
+    # is appended.  For each prefix it looks for an "api_keys" variable in the
+    # corresponding namespace -- an empty prefix is forced to the global
+    # namespace -- and returns that variable's value verbatim if it exists;
+    # otherwise it tries an environment variable of the same base name (with
+    # colons stripped) and returns it verbatim if set.  If nothing matches and
+    # prefixOnly is not set, a configured default list (autoApiKeys) is returned
+    # when non-empty.  As a last resort it returns the empty list, which means
+    # "anonymous": only public packages with no owners are accessible.
+    #
+    # Security details: the returned values are SECRETS -- they authenticate the
+    # caller and authorize access to private packages -- and are passed into
+    # lookup URIs (see [getLookupUri]), so they may end up in request URLs and
+    # potentially in logs; handle them accordingly.  The empty-list fallback is
+    # a safe, least-privilege default (anonymous access).  The prefixOnly flag
+    # lets a caller deliberately restrict resolution to a specific prefix,
+    # bypassing both the package default prefix and the autoApiKeys default,
+    # which is useful for isolating credentials per server.  Values are returned
+    # exactly as stored or as found in the environment, without validation.
+    #
+    # Arguments:
+    #   prefix     -- Optional extra variable-name prefix to consult before the
+    #                 package's own prefix; an empty string means none.
+    #   prefixOnly -- Optional boolean (default false); when true, only the
+    #                 caller-supplied prefix is consulted and the package
+    #                 default prefix and autoApiKeys default are skipped.
+    #
+    # Results:
+    #   The first matching list of API keys found, the autoApiKeys default when
+    #   applicable, or the empty list (anonymous access) when none are
+    #   configured.
+    # </help>
+
     global env
     variable autoApiKeys
 
@@ -932,6 +1654,30 @@ namespace eval ::PackageRepository {
   #
   # <internal>
   proc verifyMetadataLanguage { language } {
+    # <help>
+    # This procedure validates the "language" field associated with package
+    # metadata, raising a script error when it is not one of the accepted
+    # values.  It exists to enforce that package metadata only ever declares a
+    # language this toolset understands, since the declared language influences
+    # how the associated package script is treated.
+    #
+    # How it works: it checks the value (exact match) against the fixed set
+    # consisting of the empty string, "Tcl", and "Eagle".  Anything outside
+    # that set raises an "unsupported metadata language" error.
+    #
+    # Security details: this is a fail-closed input guard -- an unexpected or
+    # malformed language value is rejected rather than silently accepted,
+    # preventing downstream code from acting on an unrecognized language.
+    #
+    # Arguments:
+    #   language -- The metadata language string to validate; must be the empty
+    #               string, "Tcl", or "Eagle".
+    #
+    # Results:
+    #   No meaningful result on success; a script error is raised for any
+    #   unsupported value.
+    # </help>
+
     if {[lsearch -exact [list "" Tcl Eagle] $language] == -1} then {
       error "unsupported metadata language"
     }
@@ -944,6 +1690,33 @@ namespace eval ::PackageRepository {
   #
   # <internal>
   proc verifyServerId { serverId } {
+    # <help>
+    # This procedure validates a backend server identifier, raising a script
+    # error when it is malformed.  Server Ids are used (by [useServerId]) to
+    # build the lookup and submit URN variable names that select an alternative
+    # repository backend, so constraining their character set is important.
+    #
+    # How it works: an empty server Id is accepted (it denotes "use the
+    # defaults").  A non-empty server Id must match the pattern of a leading
+    # letter followed by zero or more alphanumeric characters (matched
+    # case-insensitively); anything else raises an error stating the Id must be
+    # alphanumeric and start with a letter.
+    #
+    # Security details: this is a fail-closed input guard whose real purpose is
+    # to keep server Ids strictly alphanumeric so they cannot inject unexpected
+    # characters into the URN strings that are later concatenated into request
+    # endpoints; rejecting odd input here prevents that value from steering
+    # requests to an unintended location.
+    #
+    # Arguments:
+    #   serverId -- The server identifier to validate; either empty, or a
+    #               letter-led alphanumeric string.
+    #
+    # Results:
+    #   No meaningful result on success; a script error is raised for a
+    #   malformed (non-empty, non-alphanumeric, or non-letter-led) value.
+    # </help>
+
     if {[string length $serverId] > 0 && \
         ![regexp -nocase -- {^[A-Z][0-9A-Z]*$} $serverId]} then {
       error "server Id must be alphanumeric and start with a letter"
@@ -959,6 +1732,38 @@ namespace eval ::PackageRepository {
   #
   # <public>
   proc useServerId { {serverId ""} } {
+    # <help>
+    # This procedure reconfigures the client to talk to a specific (possibly
+    # private) repository backend by adjusting the lookup and submit URN
+    # variables to encode the given server identifier.  It exists so callers
+    # can switch among alternative backend servers without manually editing the
+    # URN configuration, and to switch back to the defaults.
+    #
+    # How it works: it first validates the server Id via [verifyServerId] (which
+    # raises an error on malformed input).  For a non-empty, valid server Id it
+    # sets lookupUrn to "pkgr_lookup_<serverId>" and submitUrn to
+    # "pkgr_submit_<serverId>", assuming that the server Id itself names a
+    # valid, active backend.  For an empty server Id it forcibly resets the URN
+    # variables to their built-in defaults by calling
+    # [setupRepositoryServerVars] with force true.
+    #
+    # Security details: this changes which repository endpoint the client will
+    # contact for both lookups and submissions, so it directly affects where
+    # package material is fetched from and published to; switching servers is a
+    # trust decision and the alphanumeric validation performed by [verifyServerId]
+    # guards against injecting unexpected characters into the resulting URNs.
+    #
+    # Arguments:
+    #   serverId -- Optional. A letter-led alphanumeric server identifier
+    #               selecting the backend; an empty string (the default)
+    #               restores the standard lookup and submit URNs.
+    #
+    # Results:
+    #   The result is unspecified; this procedure is called for its side effect
+    #   of updating the URN variables.  A script error is raised if serverId is
+    #   malformed.
+    # </help>
+
     variable lookupUrn
     variable submitUrn
 
@@ -986,6 +1791,35 @@ namespace eval ::PackageRepository {
   #       arguments.
   #
   proc getLookupBaseUri {} {
+    # <help>
+    # This procedure returns the base URI of the repository server endpoint
+    # used to LOOK UP packages.  It exists to resolve the effective lookup
+    # endpoint from configuration, honoring any override the user has supplied
+    # before falling back to the built-in template.
+    #
+    # How it works: it forms the override variable name by appending
+    # "lookup_base_uri" to the package prefix (from [getLookupVarNamePrefix]).
+    # If that namespace variable exists, its value is returned verbatim;
+    # otherwise an environment variable of the same base name (with colons
+    # stripped) is returned if set.  When neither override is present, it
+    # returns the configured lookupUri template expanded with [subst], which
+    # resolves the embedded baseUri and lookupUrn references into a full URI.
+    #
+    # Security details: the resulting URI determines where lookup requests --
+    # which may carry API keys and which return trusted package metadata -- are
+    # sent.  Overriding it via a variable or environment value redirects those
+    # requests, so overrides should point only at trusted servers and should
+    # normally use HTTPS; the built-in default does.  Override values are
+    # returned verbatim, without validation.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The lookup base URI: an override value if configured, otherwise the
+    #   expanded default template.
+    # </help>
+
     global env
     variable baseUri
     variable lookupUri
@@ -1013,6 +1847,34 @@ namespace eval ::PackageRepository {
   #
   # <internal>
   proc getSubmitBaseUri {} {
+    # <help>
+    # This procedure returns the base URI of the repository server endpoint
+    # used to SUBMIT (publish) packages.  It is the submit-side counterpart to
+    # [getLookupBaseUri] and resolves the effective submit endpoint from
+    # configuration, honoring any user override before the built-in template.
+    #
+    # How it works: it forms the override variable name by appending
+    # "submit_base_uri" to the package prefix (from [getLookupVarNamePrefix]).
+    # If that namespace variable exists, its value is returned verbatim;
+    # otherwise an environment variable of the same base name (with colons
+    # stripped) is returned if set.  When neither override is present, it
+    # returns the configured submitUri template expanded with [subst], which
+    # resolves the embedded baseUri and submitUrn references into a full URI.
+    #
+    # Security details: the resulting URI determines where package SUBMISSIONS
+    # are sent, which is a publishing action; redirecting it via an override
+    # points uploads at a different server, so overrides must name only trusted
+    # endpoints and should use HTTPS (the default does).  Override values are
+    # returned verbatim, without validation.
+    #
+    # Arguments:
+    #   None.
+    #
+    # Results:
+    #   The submit base URI: an override value if configured, otherwise the
+    #   expanded default template.
+    # </help>
+
     global env
     variable baseUri
     variable submitUri
@@ -1045,6 +1907,45 @@ namespace eval ::PackageRepository {
   #       the URI to use.
   #
   proc getLookupUri { apiKeys package version } {
+    # <help>
+    # This procedure constructs the full HTTP(S) request URI used to look up a
+    # specific package on the repository server.  It exists to centralize the
+    # building and correct escaping of the lookup query, and performs no
+    # network I/O itself -- it merely returns the URI string for a caller to
+    # request.
+    #
+    # How it works: it first obtains the lookup base URI from [getLookupBaseUri],
+    # returning an empty string if none is available (so callers can detect a
+    # missing endpoint and avoid issuing a request).  It then appends a query
+    # string containing the constant parameters (raw=1 and method=lookup) plus
+    # the package and version, and either an "apiKeys" parameter holding the
+    # comma-joined list of keys when one or more were supplied, or an "apiKey"
+    # parameter holding an empty (anonymous) key when none were.  All
+    # caller-supplied values are URL-escaped: under Eagle via [uri escape data],
+    # and under Tcl via the http package's [::http::formatQuery].
+    #
+    # Security details: API keys are SECRETS and this procedure places them
+    # directly into the request URI as query parameters; that means they can
+    # appear in server access logs, proxy logs, and browser-style history, so
+    # the transport should be HTTPS (the default base URI is) and the resulting
+    # URI should itself be treated as sensitive and kept out of general logs.
+    # The empty-key/anonymous form is used when no keys are provided, matching
+    # the least-privilege default from [getApiKeys].  Proper escaping of the keys,
+    # package, and version is essential to avoid malformed or injectable query
+    # strings.
+    #
+    # Arguments:
+    #   apiKeys -- The list of API keys to authenticate the lookup, or an empty
+    #              list for an anonymous (public-package) lookup.
+    #   package -- The package name to look up; must not be empty.
+    #   version -- The specific version to look up, or an empty string for any
+    #              available version.
+    #
+    # Results:
+    #   The fully assembled, escaped lookup URI, or an empty string when no
+    #   lookup base URI is configured.
+    # </help>
+
     #
     # NOTE: Fetch the base URI for the package repository server.  If it
     #       is not available for some reason, just return an empty string
@@ -1101,6 +2002,27 @@ namespace eval ::PackageRepository {
   #       empty string for any available version.
   #
   proc getIfNeededVersion { package version } {
+    # <help>
+    # This procedure determines which concrete package version should be used
+    # to locate the associated [package ifneeded] script.  It exists to resolve
+    # the "any version" case to a specific, registered version when the caller
+    # has not pinned one.
+    #
+    # How it works: if a non-empty version was supplied, it is returned as-is.
+    # Otherwise the procedure returns the first element of [package versions]
+    # for the named package, which is the version most recently registered with
+    # the package subsystem, or an empty string if none is registered.
+    #
+    # Arguments:
+    #   package -- The package name; must not be empty.
+    #   version -- A specific version, or an empty string to select any
+    #              available (first-registered) version.
+    #
+    # Results:
+    #   The supplied version when non-empty; otherwise the first registered
+    #   version for the package, or an empty string when there is none.
+    # </help>
+
     if {[string length $version] > 0} then {
       return $version
     }
@@ -1116,6 +2038,35 @@ namespace eval ::PackageRepository {
   #       conforms to TIP #268.
   #
   proc packageRequirementToVersion { requirement } {
+    # <help>
+    # This procedure reduces a package requirement (version specification, in
+    # the TIP #268 sense) down to a single, simple version string when it can,
+    # or to an empty string meaning "any version is acceptable".  It exists to
+    # translate the richer requirement syntax that callers may pass into the
+    # plain version value that the lookup machinery expects.
+    #
+    # How it works: starting from the requirement text, it strips anything from
+    # the first dash onward (the upper bound of a range), then strips anything
+    # from the first "a" or "b" onward (alpha/beta qualifiers), keeping only the
+    # leading portion in each case.  If what remains is exactly "0", it is
+    # treated as "any version" and the empty string is returned; if it is a bare
+    # integer, ".0" is appended to make it a well-formed two-part version.  The
+    # possibly-trimmed value is then returned.
+    #
+    # Tricky details: this is a deliberately simple textual transform, not a
+    # full TIP #268 parser -- it collapses ranges and pre-release qualifiers by
+    # truncation rather than interpreting them, so it yields a lower-bound-style
+    # simple version rather than honoring an entire range.  Callers needing
+    # exact range semantics should not rely on it for that.
+    #
+    # Arguments:
+    #   requirement -- A package requirement / version specification conforming
+    #                  to TIP #268.
+    #
+    # Results:
+    #   A simple version string, or an empty string when any version is allowed.
+    # </help>
+
     set result $requirement
 
     if {[set index [string first - $result]] != -1} then {
@@ -1148,6 +2099,51 @@ namespace eval ::PackageRepository {
   #       therefore, all script signatures must assume this.
   #
   proc getLookupData { apiKeys package version } {
+    # <help>
+    # This procedure issues the HTTP lookup request to the package repository
+    # server and returns the normalized raw response, which should contain the
+    # metadata needed to load or provide the requested package.  It exists as
+    # the transport layer of the lookup: building the request URI, fetching it,
+    # and canonicalizing the bytes received so downstream parsing can assume a
+    # consistent form.
+    #
+    # How it works: it builds the lookup URI from the API keys, package name,
+    # and version via [getLookupUri]; if that yields an empty URI there is
+    # nothing to request and it returns the empty string.  Optionally (when the
+    # verbose-URI flag is set) it logs the URI and, later, the raw response.  In
+    # Eagle it downloads via the [uri download] command with a network timeout,
+    # inline; in native Tcl it uses [getFileViaHttp] with a fixed timeout in
+    # binary mode.  It then normalizes the response: it un-escapes a small set
+    # of HTML/XML entities (less-than, greater-than, quote, and -- done last --
+    # ampersand) back to their literal characters, converts all CRLF and CR
+    # line endings to Unix-style newlines, and trims surrounding whitespace.
+    #
+    # SECURITY: This routine performs the network fetch but does not itself
+    # authenticate the server or verify any signature; trust in the eventual
+    # package comes from the downstream signature verification, not from this
+    # transport.  Two details matter to callers.  First, line endings are
+    # normalized to Unix style here, so every package script signature must be
+    # computed against Unix-style line endings -- a mismatch would cause
+    # verification to fail.  Second, the API keys are embedded into the lookup
+    # URI by [getLookupUri]; passing an empty key list produces an anonymous
+    # request, which is how the caller's anonymous fallback works.  Enabling the
+    # verbose flag logs the full URI (including any embedded keys) and the raw
+    # response.
+    #
+    # Arguments:
+    #   apiKeys -- The list of API keys to authenticate the lookup, -OR- an
+    #              empty list for an anonymous (public) lookup.
+    #   package -- The name of the package to look up; it cannot be an empty
+    #              string.
+    #   version -- The specific version being looked up, -OR- an empty string
+    #              for any available version.
+    #
+    # Results:
+    #   Returns the normalized raw response data (entity-decoded, Unix line
+    #   endings, trimmed), or the empty string when no lookup URI could be
+    #   built.  May raise script errors arising from the underlying download.
+    # </help>
+
     variable verboseUriDownload
 
     set uri [getLookupUri $apiKeys $package $version]
@@ -1187,6 +2183,25 @@ namespace eval ::PackageRepository {
   #
   # <internal>
   proc getResponseCodeFromRawData { data } {
+    # <help>
+    # This procedure extracts the lookup response code from the raw HTTP
+    # response data.  It exists to isolate the parsing of the first response
+    # element, which callers compare against the success convention via
+    # [isResponseCodeOk].
+    #
+    # How it works: it treats the response data as a list.  If the data is not
+    # a valid list or is empty, no code is available and it returns the empty
+    # string; otherwise it returns the first list element (index 0).
+    #
+    # Arguments:
+    #   data -- The raw HTTP response data, expected to be a list whose first
+    #           element is the lookup response code.
+    #
+    # Results:
+    #   Returns the lookup response code, or the empty string when none is
+    #   present or the data is not a well-formed, non-empty list.
+    # </help>
+
     if {![stringIsList $data] || [llength $data] < 1} then {
       return ""
     }
@@ -1201,6 +2216,26 @@ namespace eval ::PackageRepository {
   #
   # <internal>
   proc getResponseResultFromRawData { data } {
+    # <help>
+    # This procedure extracts the lookup result (the payload, or the error
+    # message on failure) from the raw HTTP response data.  It exists as the
+    # companion to the response-code extractor, isolating the parsing of the
+    # second response element.
+    #
+    # How it works: it treats the response data as a list.  If the data is not
+    # a valid list or has fewer than two elements, no result is available and
+    # it returns the empty string; otherwise it returns the second list element
+    # (index 1).
+    #
+    # Arguments:
+    #   data -- The raw HTTP response data, expected to be a list whose second
+    #           element is the lookup result.
+    #
+    # Results:
+    #   Returns the lookup result, or the empty string when none is present or
+    #   the data is not a well-formed list of sufficient length.
+    # </help>
+
     if {![stringIsList $data] || [llength $data] < 2} then {
       return ""
     }
@@ -1215,6 +2250,22 @@ namespace eval ::PackageRepository {
   #
   # <internal>
   proc isResponseCodeOk { code } {
+    # <help>
+    # This procedure reports whether a lookup response code indicates success.
+    # It exists to centralize the success convention so the rest of the client
+    # does not hard-code the literal value in multiple places.
+    #
+    # How it works: it returns the boolean result of comparing the code against
+    # the literal string "OK"; only that exact value is treated as success.
+    #
+    # Arguments:
+    #   code -- The lookup response code extracted from the raw HTTP response
+    #           data.
+    #
+    # Results:
+    #   Returns non-zero if the code is exactly "OK", zero otherwise.
+    # </help>
+
     #
     # NOTE: The code must be the literal string "OK" for the package lookup
     #       request to be considered successful.
@@ -1229,6 +2280,28 @@ namespace eval ::PackageRepository {
   #       with the server.
   #
   proc isValidPackageName { name {emptyOk false} } {
+    # <help>
+    # This procedure reports whether a string is a valid package name according
+    # to the conventions enforced by both this client and the package
+    # repository server.  It exists so that names received from a lookup (and
+    # names supplied by callers) can be sanity-checked before being trusted or
+    # used in further commands.
+    #
+    # How it works: if empty input is permitted and the name is empty, it
+    # returns true.  Otherwise it matches the name against a regular expression
+    # requiring it to begin with an ASCII letter and to consist thereafter only
+    # of letters, digits, and dot characters.
+    #
+    # Arguments:
+    #   name    -- The candidate package name to validate.
+    #   emptyOk -- Non-zero if an empty string should be considered valid;
+    #              defaults to false.
+    #
+    # Results:
+    #   Returns non-zero if the name conforms to the package name conventions
+    #   (or is empty when permitted), zero otherwise.
+    # </help>
+
     if {$emptyOk && [string length $name] == 0} then {
       return true
     }
@@ -1250,6 +2323,41 @@ namespace eval ::PackageRepository {
   #       ignored for Eagle because it requires TIP #268 support.
   #
   proc isValidPackageRequirement { requirement rangeOk {emptyOk false} } {
+    # <help>
+    # This procedure reports whether a string is a valid package version or
+    # version requirement, with behavior that differs between native Tcl and
+    # Eagle.  It exists to validate version-related metadata (such as the patch
+    # level returned by a lookup) before it is trusted, and it is shared in
+    # spirit with the package repository server's common code.
+    #
+    # How it works: if empty input is permitted and the requirement is empty,
+    # it returns true immediately.  In Eagle, which does not support TIP #268,
+    # it validates the value as a simple strict dotted version using [string is
+    # version -strict]; the rangeOk argument is ignored there because ranges
+    # require TIP #268.  In native Tcl, the requirement may use full TIP #268
+    # syntax.  When ranges are not allowed (rangeOk is zero) and a dash is
+    # present, it rejects the value.  Because Tcl offers no direct validity
+    # test, it deliberately misuses [package present Tcl] with the requirement:
+    # the "Tcl" package is always present, so a clean result means the syntax
+    # parsed; if an error is raised, it inspects the message and treats it as
+    # invalid only when it matches the known "expected version number" or
+    # "expected versionMin-versionMax" patterns (this message-text dependency
+    # is a noted fragility that may need future updates), otherwise it is
+    # considered valid.
+    #
+    # Arguments:
+    #   requirement -- The version or requirement string to validate.
+    #   rangeOk     -- Non-zero if version range syntax is permitted; ignored in
+    #                  Eagle.  When zero in Tcl, a dash (range) makes the value
+    #                  invalid.
+    #   emptyOk     -- Non-zero if an empty string should be considered valid;
+    #                  defaults to false.
+    #
+    # Results:
+    #   Returns non-zero if the requirement is valid under the active language's
+    #   rules (or empty when permitted), zero otherwise.
+    # </help>
+
     if {$emptyOk && [string length $requirement] == 0} then {
       return true
     }
@@ -1308,6 +2416,59 @@ namespace eval ::PackageRepository {
   #       the literal string "handler".
   #
   proc extractAndVerifyLookupMetadata { result varName caller } {
+    # <help>
+    # This procedure parses the dictionary returned by a successful repository
+    # lookup into the individual pieces of metadata needed to load a package,
+    # validating each piece and rejecting anything malformed or missing.  It
+    # exists as the structural gatekeeper between the raw server response and
+    # the verification-and-evaluation step, so that only well-formed, signed
+    # metadata is ever passed onward.
+    #
+    # How it works: it reads several named values from the result dictionary
+    # via [getDictionaryValue] and enforces rules on each.  The package Name
+    # must be non-empty and conform to the package name conventions (per
+    # [isValidPackageName]).  The PatchLevel must be non-empty and a valid
+    # single package version (per [isValidPackageRequirement]).  The Language
+    # is validated by [verifyMetadataLanguage] and must be empty, "Tcl", or
+    # "Eagle".  The Script must be non-empty -- an empty script means there is
+    # nothing to load and is an error.  The Certificate must be non-empty;
+    # this is the rule that forbids unsigned packages.  When all checks pass and
+    # a destination variable name was supplied, it writes the five values
+    # (name, patchLevel, language, script, certificate) into the caller's array
+    # via [upvar 1].
+    #
+    # SECURITY: This routine is a fail-closed validator -- any missing or
+    # invalid field raises an error and prevents the package from being loaded.
+    # Two checks are especially security-relevant.  First, a missing
+    # certificate is rejected outright: this client does not accept unsigned
+    # package scripts.  Second, when invoked from the [package unknown] handler
+    # (caller equals "handler") with strict-unknown-language mode enabled, the
+    # package script's language must match the current interpreter language
+    # (Eagle under Eagle, Tcl under Tcl); a mismatch raises an error, closing a
+    # gap where a package might otherwise be provided to a language it was not
+    # intended for.  Note that this procedure validates structure and language
+    # only; it does NOT verify the signature itself -- that cryptographic check
+    # is performed later by [processLookupMetadata].
+    #
+    # Arguments:
+    #   result  -- The lookup result dictionary returned by the repository
+    #              server, expected to carry Name, PatchLevel, Language, Script,
+    #              and Certificate entries.
+    #   varName -- The name of an array variable in the immediate caller's frame
+    #              to receive the extracted metadata.  When empty, the values
+    #              are validated but not stored.
+    #   caller  -- The provenance of the request; an empty string -OR- the
+    #              literal string "handler".  The value "handler" enables the
+    #              strict language match described above.
+    #
+    # Results:
+    #   Returns an unspecified value on success, having populated the caller's
+    #   metadata array when a variable name was given.  Raises a script error
+    #   for any missing or invalid field (missing/bad name, missing/bad patch
+    #   level, invalid language, missing script, missing certificate) or for a
+    #   language mismatch in strict handler mode.
+    # </help>
+
     variable strictUnknownLanguage
 
     #
@@ -1413,6 +2574,27 @@ namespace eval ::PackageRepository {
   #       is raised.  There are no arguments.
   #
   proc tclMustBeReady {} {
+    # <help>
+    # This procedure, intended for use from Eagle, asserts that a native Tcl
+    # library is already loaded and ready, raising an error if not.  It exists
+    # as a precondition check used before evaluating a Tcl-targeted package
+    # script via the bridge, so the absence of a native Tcl library is reported
+    # clearly rather than failing obscurely later.
+    #
+    # How it works: it forbids use from native Tcl (where the check is
+    # meaningless) by raising an error when [isEagle] is false.  It then checks
+    # [tcl ready] and, if no native Tcl library is loaded, raises an error.
+    # Unlike [makeTclReady], this procedure never attempts to load anything
+    # itself.
+    #
+    # Arguments:
+    #   (none)
+    #
+    # Results:
+    #   Returns an empty result when native Tcl is ready.  Raises a script error
+    #   when called from native Tcl or when no native Tcl library is loaded.
+    # </help>
+
     #
     # NOTE: This procedure is useless when running in native Tcl; therefore,
     #       forbid its use there.
@@ -1437,6 +2619,33 @@ namespace eval ::PackageRepository {
   #
   # <internal>
   proc makeTclReady {} {
+    # <help>
+    # This procedure, intended for use from Eagle, attempts to load the best
+    # available native Tcl library and then confirms that Tcl is ready.  It
+    # exists so an Eagle-hosted client can reach into native Tcl when a
+    # downloaded package targets Tcl.
+    #
+    # How it works: it first forbids use from native Tcl (where it would be
+    # pointless) by raising an error if [isEagle] is false.  It then loads a
+    # native Tcl library with [tcl load] using the -maybetrustedonly, -bridge,
+    # and -robustify options, and finally calls [tclMustBeReady] to verify the
+    # library was loaded into the interpreter.
+    #
+    # SECURITY: The load uses -maybetrustedonly, meaning the native Tcl library
+    # must carry a valid Authenticode signature to be loaded; this is the trust
+    # check for bringing native Tcl into the process.  This is a stronger
+    # assurance than the Garuda load performed by [makeEagleReady], which is
+    # assumed trusted without independent verification.
+    #
+    # Arguments:
+    #   (none)
+    #
+    # Results:
+    #   Returns an empty result on success.  Raises a script error when called
+    #   from native Tcl, when no suitable signed native Tcl library can be
+    #   loaded, or when Tcl does not appear ready afterward.
+    # </help>
+
     #
     # NOTE: This procedure is useless when running in native Tcl; therefore,
     #       forbid its use there.
@@ -1466,6 +2675,27 @@ namespace eval ::PackageRepository {
   #
   # <internal>
   proc eagleMustBeReady {} {
+    # <help>
+    # This procedure, intended for use from native Tcl, asserts that Garuda and
+    # Eagle are already loaded and ready, raising an error if not.  It exists as
+    # a precondition check used before bridging work over to Eagle, ensuring
+    # the bridge is actually available rather than silently failing later.
+    #
+    # How it works: it forbids use from within Eagle (where the check is
+    # meaningless) by raising an error when [isEagle] is true.  It then verifies
+    # readiness without loading anything itself, by checking that the [eagle]
+    # command exists; if no such command is found, Eagle's supporting package is
+    # not loaded and it raises an error.  Unlike [makeEagleReady], this
+    # procedure never attempts to load anything.
+    #
+    # Arguments:
+    #   (none)
+    #
+    # Results:
+    #   Returns an empty result when Eagle is ready.  Raises a script error when
+    #   called from Eagle or when the Eagle support package is not loaded.
+    # </help>
+
     #
     # NOTE: This procedure is useless when running in Eagle; therefore,
     #       forbid its use there.
@@ -1490,6 +2720,34 @@ namespace eval ::PackageRepository {
   #
   # <internal>
   proc makeEagleReady {} {
+    # <help>
+    # This procedure, intended for use from native Tcl, attempts to make Eagle
+    # available by loading the Garuda package, then confirms that Eagle is
+    # ready.  It exists so that a Tcl-hosted client can reach into Eagle when a
+    # downloaded package targets Eagle or when the Harpy verification path
+    # (which requires Eagle plugins) is needed.
+    #
+    # How it works: it first forbids use from within Eagle (where it would be
+    # pointless) by raising an error if [isEagle] is true.  It then does
+    # [package require Garuda] to load Garuda and gain access to Eagle, and
+    # finally calls [eagleMustBeReady] to verify the load actually succeeded.
+    #
+    # SECURITY: As the in-code TODO notes, the Garuda package is effectively
+    # assumed to be trusted at this point -- it is loaded via the ordinary
+    # package mechanism and is not independently signature-verified here.  This
+    # is a trust assumption that callers depend upon; the integrity guarantees
+    # for downloaded package scripts come later, in the verification pipeline,
+    # not from this load.
+    #
+    # Arguments:
+    #   (none)
+    #
+    # Results:
+    #   Returns an empty result on success.  Raises a script error when called
+    #   from Eagle, when Garuda cannot be loaded, or when Eagle does not appear
+    #   ready afterward.
+    # </help>
+
     #
     # NOTE: This procedure is useless when running in Eagle; therefore,
     #       forbid its use there.
@@ -1517,6 +2775,37 @@ namespace eval ::PackageRepository {
   #       There are no arguments.
   #
   proc eagleHasSecurity {} {
+    # <help>
+    # This procedure reports whether the current script is running in Eagle
+    # with signed-only script security enabled.  It exists so the verification
+    # pipeline can tell whether interpreter security is already in force and,
+    # if not, know that it must temporarily enable it before evaluating a
+    # downloaded script.
+    #
+    # How it works: only when running in Eagle and the [object] command is
+    # available does it attempt the check; it invokes, via reflection,
+    # Interpreter.GetActive HasSecurity (including non-public members) inside a
+    # [catch].  If that invocation succeeds and reports a true value, it returns
+    # true.  In every other situation -- native Tcl, no [object] command, the
+    # reflection call failing, or a false result -- it returns false.
+    #
+    # SECURITY: A copy of this helper is created under a unique name and used by
+    # the Harpy verification block to capture and restore the interpreter
+    # security state.  Because the function is conservative (it only reports
+    # true when it can positively confirm security is on), a failure to
+    # determine the state is treated as "not secure", which causes callers to
+    # enable security rather than assume it is already present -- the safe
+    # default.
+    #
+    # Arguments:
+    #   (none)
+    #
+    # Results:
+    #   Returns non-zero if the current Eagle interpreter has signed-only script
+    #   security enabled, zero otherwise (including when not running in Eagle or
+    #   when the state cannot be determined).
+    # </help>
+
     #
     # NOTE: If possible, check if the current interpreter has security
     #       enabled.
@@ -1549,6 +2838,87 @@ namespace eval ::PackageRepository {
   #       procedure may raise script errors.
   #
   proc processLookupMetadata { varName } {
+    # <help>
+    # This procedure is the heart of the client's trust enforcement: given the
+    # validated package lookup metadata, it verifies the signature on the
+    # downloaded package script and, only if verification succeeds, evaluates
+    # that script in the appropriate target language.  It exists so that a
+    # package downloaded from a repository is never executed unless its
+    # accompanying certificate or signature checks out, and it is designed to
+    # work for both native Tcl and Eagle packages while running under either
+    # interpreter.
+    #
+    # How it works: it requires the name of a metadata array variable in the
+    # immediate caller's frame (reached via [upvar 1]) and fails if the array
+    # or any of its required members -- name, patch level, language, script, or
+    # certificate -- is missing.  It then determines the certificate type and
+    # branches:
+    #
+    #   1. Harpy certificate (per [isHarpyCertificate]).  The verification and
+    #      evaluation must occur in Eagle, because it depends on Eagle-only
+    #      plugins.  The procedure constructs an Eagle script block that: saves
+    #      the interpreter security state and enables signed-script security if
+    #      it was off (sourcing "enableSecurity"); writes the downloaded script
+    #      and its certificate to temporary files; and then re-reads the script
+    #      from disk via [interp readorgetscriptfile] precisely so the Harpy
+    #      policy engine validates the script against its certificate, raising
+    #      an error if the signature is missing or invalid.  Only after that
+    #      check does it evaluate the script in the target language (Eagle
+    #      directly, or native Tcl via the bridge after [tclMustBeReady]).  It
+    #      uses [try]/[finally] to clean up temporary files (unless the
+    #      PKGR_KEEP_FILES environment variable is set) and to restore the prior
+    #      security state.  To run this in a controlled environment it creates
+    #      uniquely named temporary copies of the [eagleHasSecurity],
+    #      [getFileTempName], and [tclMustBeReady] helpers (and a private
+    #      metadata array and cleanup script), and removes them in a finally
+    #      block; when the current language is native Tcl it marshals all of
+    #      this across the bridge with [eagleMustBeReady] first.
+    #
+    #   2. OpenPGP signature (per [isOpenPgpSignature]).  The script and its
+    #      detached signature are written to temporary files, a local OpenPGP
+    #      implementation is located and required (via
+    #      [probeForOpenPgpInstallation] and [openPgpMustBeInstalled]), and the
+    #      signature is checked with [verifyOpenPgpSignature].  If verification
+    #      fails, the temporary files are cleaned up and an error is raised so
+    #      the script is NOT evaluated.  Only on success is the downloaded
+    #      script used verbatim and evaluated in the target language (Eagle or
+    #      Tcl, bridging via Garuda or the [tcl] command as needed).
+    #
+    #   3. Anything else: an error is raised for an unsupported certificate.
+    #
+    # SECURITY: This is the single most security-critical routine in the file.
+    # It is strictly fail-closed: every required metadata field is checked, an
+    # unrecognized certificate type is rejected, and in both the Harpy and
+    # OpenPGP paths a failed or missing signature raises an error before any
+    # untrusted code runs.  The Harpy path deliberately re-reads the script
+    # from a temporary file so the policy engine, not this procedure, makes the
+    # trust decision, and it temporarily enables interpreter security for the
+    # duration.  Key trust assumptions and gotchas: the Harpy path depends on
+    # Eagle plugins being present and on the enableSecurity/disableSecurity
+    # scripts behaving correctly; the OpenPGP path trusts the locally installed
+    # gpg implementation and the keys in its keyring, and the correctness of
+    # the verify command and result-matching pattern configured in the OpenPGP
+    # setup; setting PKGR_KEEP_FILES leaves the (potentially sensitive)
+    # temporary script and certificate files on disk.  If the metadata script
+    # field is empty, the procedure does nothing (there is nothing to load).
+    #
+    # Arguments:
+    #   varName -- The name of an array variable in the immediate caller's
+    #              frame holding the package lookup metadata.  It must be a
+    #              non-empty name and the named array must exist and contain the
+    #              name, patchLevel, language, script, and certificate members
+    #              (as produced by [extractAndVerifyLookupMetadata]).
+    #
+    # Results:
+    #   Returns the result of evaluating the verified package script (commonly
+    #   the empty string), or does nothing when there is no script to evaluate.
+    #   Raises a script error if the metadata is missing or incomplete, if the
+    #   certificate type is unsupported, if the signature is missing or invalid,
+    #   if the required verification tooling (Harpy/Eagle plugins or a local
+    #   OpenPGP implementation) is unavailable, or if the package script itself
+    #   raises an error.
+    # </help>
+
     #
     # NOTE: If the metadata variable name appears to be invalid, fail.
     #
@@ -1920,6 +3290,30 @@ namespace eval ::PackageRepository {
   #       #268.
   #
   proc isPackagePresent { package version } {
+    # <help>
+    # This procedure reports whether a package is already present -- that is,
+    # already loaded into the interpreter at a version that satisfies the
+    # requested requirement.  It exists so the [package unknown] handler can
+    # short-circuit and skip the repository entirely when the requested package
+    # has, in fact, already been provided.
+    #
+    # How it works: it builds a [package present] command for the package,
+    # appending the version requirement when one was supplied, and evaluates it
+    # under [catch].  A zero catch code means the package is present (returns
+    # true); a non-zero code means it is not (returns false).  Both the success
+    # and failure cases are logged when the verbose flag is enabled.
+    #
+    # Arguments:
+    #   package -- The name of the package being sought; it cannot be an empty
+    #              string.
+    #   version -- A specific version -OR- a package specification conforming to
+    #              TIP #268, or an empty string for no version constraint.
+    #
+    # Results:
+    #   Returns non-zero if the package is present at a satisfying version, zero
+    #   otherwise.
+    # </help>
+
     variable verboseUnknownResult
 
     set command [list package present $package]
@@ -1952,6 +3346,32 @@ namespace eval ::PackageRepository {
   #       #268.
   #
   proc isPackageAvailable { package version } {
+    # <help>
+    # This procedure reports whether a package appears to be available to be
+    # loaded -- that is, whether the interpreter knows of a version of it that
+    # satisfies the requested requirement -- without actually loading it.  It
+    # exists so the [package unknown] handler can avoid a needless repository
+    # download when a suitable version is already registered.
+    #
+    # How it works: it obtains the list of known versions via [package
+    # versions].  If that list is empty, the package is not available and it
+    # returns false.  If no specific version was requested (an empty version
+    # argument), any known version qualifies, so it returns true.  Otherwise it
+    # walks the known versions and returns true as soon as one satisfies the
+    # requested requirement (per [package vsatisfies]); if none do, it returns
+    # false.  Each outcome is logged when the verbose flag is enabled.
+    #
+    # Arguments:
+    #   package -- The name of the package being sought; it cannot be an empty
+    #              string.
+    #   version -- A specific version -OR- a package specification conforming to
+    #              TIP #268, or an empty string to mean any available version.
+    #
+    # Results:
+    #   Returns non-zero if a known, satisfying version of the package exists,
+    #   zero otherwise.
+    # </help>
+
     variable verboseUnknownResult
 
     set packageVersions [package versions $package]
@@ -2005,6 +3425,30 @@ namespace eval ::PackageRepository {
   #       the name of the package to check.
   #
   proc canDownloadPackage { package } {
+    # <help>
+    # This procedure decides whether a given package is eligible to be fetched
+    # from the repository, as opposed to one that must not be downloaded
+    # because the download mechanism itself depends on it.  It exists to break
+    # a potential infinite recursion in the [package unknown] handler: the
+    # native Tcl download path needs certain packages, and trying to download
+    # those same packages on demand would re-enter the handler endlessly.
+    #
+    # How it works: in Eagle, all required download functionality is built in,
+    # so it always returns true.  In native Tcl, it refuses (returns false) the
+    # "http" and "tls" packages, since those are required from within the
+    # handler in order to locate and download anything; refusing them prevents
+    # needless recursion, and when the verbose flag is enabled this relatively
+    # serious case is logged.  All other packages, including Garuda, are
+    # currently allowed.
+    #
+    # Arguments:
+    #   package -- The name of the package to check for download eligibility.
+    #
+    # Results:
+    #   Returns non-zero if the package may be downloaded from the repository,
+    #   zero if it must not be (because it is needed to perform downloads).
+    # </help>
+
     variable verboseUnknownResult
 
     #
@@ -2051,6 +3495,41 @@ namespace eval ::PackageRepository {
   #       Eagle.  It may install the [package unknown] hook.
   #
   proc setupPackageUnknownHandler {} {
+    # <help>
+    # This procedure performs the initial runtime setup of the package
+    # repository client, acting on the configuration variables established by
+    # the setup routines.  It exists as the single place that, at package load
+    # time, optionally prepares the cross-language bridges and installs the
+    # custom [package unknown] handler.
+    #
+    # How it works it consults several configuration flags.  When
+    # autoRequireGaruda is set and the client is running in native Tcl on
+    # Windows, it calls [makeEagleReady] to load the Garuda package (gaining
+    # access to Eagle).  When autoLoadTcl is set and the client is running in
+    # Eagle, it calls [makeTclReady] to load a native Tcl library.  Finally,
+    # when autoHook is set and the handler is not already installed (per
+    # [isPackageUnknownHandlerHooked]), it calls [hookPackageUnknownHandler] to
+    # install the client handler and save the original one.
+    #
+    # SECURITY: This routine can trigger loading of supporting components.  The
+    # native Tcl library load performed by [makeTclReady] requires a valid
+    # Authenticode signature, whereas the Garuda load performed by
+    # [makeEagleReady] is assumed trusted (it is not independently verified
+    # here).  Hooking the handler inserts the client into the package
+    # resolution path, which is the gateway to the download-and-verify
+    # pipeline; the verification of downloaded scripts itself happens later in
+    # that pipeline, not here.
+    #
+    # Arguments:
+    #   (none)
+    #
+    # Results:
+    #   Returns an unspecified value; the meaningful effect is the side effects
+    #   of optionally loading Garuda or a native Tcl library and installing the
+    #   custom [package unknown] handler.  Errors from the underlying load or
+    #   hook operations are not masked and propagate to the caller.
+    # </help>
+
     variable autoApiKeys
     variable autoHook
     variable autoLoadTcl
@@ -2091,6 +3570,24 @@ namespace eval ::PackageRepository {
   #       are no arguments.
   #
   proc isPackageUnknownHandlerHooked {} {
+    # <help>
+    # This procedure reports whether the client's custom [package unknown]
+    # handler is currently installed.  It exists so that setup logic can avoid
+    # hooking twice and callers can query the hooked state.
+    #
+    # How it works: it tests for the existence of the namespace variable that
+    # holds the saved original handler (the client prefix followed by
+    # "saved_package_unknown").  That variable is created by
+    # [hookPackageUnknownHandler] and removed by [unhookPackageUnknownHandler],
+    # so its presence is an accurate proxy for the hooked state.
+    #
+    # Arguments:
+    #   (none)
+    #
+    # Results:
+    #   Returns non-zero if the handler is currently hooked, zero otherwise.
+    # </help>
+
     return [info exists [appendArgs \
         [getLookupVarNamePrefix] saved_package_unknown]]
   }
@@ -2103,6 +3600,29 @@ namespace eval ::PackageRepository {
   #       arguments.
   #
   proc hookPackageUnknownHandler {} {
+    # <help>
+    # This procedure installs the client's custom [package unknown] handler,
+    # saving the previously configured handler so it can still participate in
+    # package resolution and later be restored.  It exists as the mechanism by
+    # which the client inserts itself into the package loading process for both
+    # native Tcl and Eagle.
+    #
+    # How it works: it computes the name of the namespace variable used to hold
+    # the saved handler (the client prefix followed by "saved_package_unknown").
+    # To prevent double-hooking, it raises an error if that variable already
+    # exists.  Otherwise it stores the current [package unknown] value into that
+    # variable and then sets [package unknown] to this namespace's
+    # [packageUnknownHandler].  The saved value is what
+    # [runSavedPackageUnknownHandler] later chains to.
+    #
+    # Arguments:
+    #   (none)
+    #
+    # Results:
+    #   Returns the result of setting the new [package unknown] handler on
+    #   success.  Raises a script error if the handler has already been hooked.
+    # </help>
+
     set varName [appendArgs [getLookupVarNamePrefix] saved_package_unknown]
 
     if {[info exists $varName]} then {
@@ -2121,6 +3641,28 @@ namespace eval ::PackageRepository {
   #       arguments.
   #
   proc unhookPackageUnknownHandler {} {
+    # <help>
+    # This procedure reverses the installation performed by
+    # [hookPackageUnknownHandler], restoring the interpreter's original
+    # [package unknown] handler.  It exists so the client can cleanly remove
+    # itself from the package resolution chain.
+    #
+    # How it works: it computes the name of the namespace variable that holds
+    # the saved original handler (the client prefix followed by
+    # "saved_package_unknown").  If that variable does not exist, the client is
+    # not currently hooked and an error is raised.  Otherwise it sets [package
+    # unknown] back to the saved value and unsets the saved-handler variable,
+    # which also restores the not-hooked state observable via
+    # [isPackageUnknownHandlerHooked].
+    #
+    # Arguments:
+    #   (none)
+    #
+    # Results:
+    #   Returns an empty result on success.  Raises a script error if the
+    #   handler is not currently hooked.
+    # </help>
+
     set varName [appendArgs [getLookupVarNamePrefix] saved_package_unknown]
 
     if {![info exists $varName]} then {
@@ -2137,6 +3679,32 @@ namespace eval ::PackageRepository {
   #       are passed in from the current [package unknown] handler verbatim.
   #
   proc runSavedPackageUnknownHandler { package version } {
+    # <help>
+    # This procedure invokes the original [package unknown] handler that was in
+    # effect before the client hooked itself in.  It exists so the client's own
+    # handler can chain to the prior handler, preserving any package resolution
+    # behavior that was already configured rather than replacing it.
+    #
+    # How it works: it reads the saved-handler value from the namespace
+    # variable whose name is the client prefix followed by
+    # "saved_package_unknown".  If that variable exists and holds a non-empty
+    # command prefix, it appends the package and version as arguments and
+    # evaluates the resulting command at the global level via [uplevel #0],
+    # matching how the interpreter would normally call a package unknown
+    # handler.  If there is no saved handler (the variable is missing or empty),
+    # it does nothing.
+    #
+    # Arguments:
+    #   package -- The name of the package being sought, passed through from the
+    #              current handler verbatim.
+    #   version -- The requested version specification, passed through verbatim.
+    #
+    # Results:
+    #   Returns the result of the saved handler when one was run, or an empty
+    #   result when no saved handler is present.  Any error raised by the saved
+    #   handler is not masked and propagates to the caller.
+    # </help>
+
     #
     # NOTE: See if there is a saved [package unknown] handler.  If so, then
     #       attempt to use it.
@@ -2159,6 +3727,54 @@ namespace eval ::PackageRepository {
   #       not explicitly supplied to the [package require] sub-command.
   #
   proc packageUnknownHandler { package {version ""} } {
+    # <help>
+    # This procedure is the custom [package unknown] handler installed by the
+    # client; it is the callback the interpreter invokes when a required
+    # package cannot be found by the normal means.  It exists to give the
+    # repository client a chance to download and provide a package on demand,
+    # while remaining a well-behaved citizen that cooperates with whatever
+    # [package unknown] handler was previously in effect.
+    #
+    # How it works, in order: it first runs the previously saved handler via
+    # [runSavedPackageUnknownHandler].  If that succeeded and the package is now
+    # present or available (per [isPackagePresent] / [isPackageAvailable]), it
+    # returns immediately and the repository is not consulted.  Otherwise, if
+    # the package is eligible for download (per [canDownloadPackage], which
+    # excludes packages needed by the download machinery itself), it attempts a
+    # repository fetch via [getPackageFromRepository] with the caller tag
+    # "handler".  That fetch is wrapped in [catch] so a repository failure does
+    # not abort the handler.  It then runs the saved handler a second time, in
+    # case the freshly provided package's "ifneeded" script now lets the old
+    # handler complete the load.  Throughout, when the verbose flag is enabled,
+    # it logs the result of each step (and, at the end, whether an ifneeded
+    # script was registered and whether the package is finally present).
+    #
+    # SECURITY: This handler is the on-demand entry into the verify-and-load
+    # pipeline.  It does not itself verify anything; the actual signature
+    # checking happens downstream in [getPackageFromRepository] (which refuses
+    # unsigned scripts and validates Harpy/OpenPGP signatures), and the
+    # "handler" caller tag enables the stricter language match in strict mode.
+    # Note that the repository fetch failure is swallowed by [catch]: a failed
+    # download does not raise here, it merely leaves the package unprovided, so
+    # the overall package require will still fail closed (the package simply
+    # remains unavailable).  The version argument is intentionally optional
+    # because Eagle does not supply one when [package require] is called
+    # without a version.
+    #
+    # Arguments:
+    #   package -- The name of the package being sought; it cannot be an empty
+    #              string.
+    #   version -- The version requested.  It must be a specific version -OR- a
+    #              package specification conforming to TIP #268.  It defaults to
+    #              the empty string because Eagle may omit it.
+    #
+    # Results:
+    #   Returns an unspecified value; the meaningful effect is the side effect
+    #   of possibly downloading, verifying, and providing the requested package
+    #   so that a subsequent or pending [package require] can succeed.  It does
+    #   not raise an error solely because the package could not be located.
+    # </help>
+
     variable verboseUnknownResult
 
     #
@@ -2267,6 +3883,34 @@ namespace eval ::PackageRepository {
   #       configuration.  This procedure may raise script errors.
   #
   proc getSettingsPrefixes { scriptName envVarName all } {
+    # <help>
+    # This procedure builds the ordered list of name prefixes that should be
+    # considered when searching for settings files.  It exists as a helper for
+    # [maybeReadSettingsFiles], centralizing the policy for which environment-
+    # specific settings variants exist and in what order they are tried.
+    #
+    # How it works: it assembles the result from the most specific candidate to
+    # the least.  If the platform user name is known, it is added first; if the
+    # host name can be determined, it is added next; the script name, when
+    # supplied, follows.  A "debug" prefix is appended either unconditionally
+    # when the all argument is non-zero, or when an environment variable named
+    # DEBUG_ followed by envVarName exists.  Finally an empty prefix is appended
+    # so the base (unqualified) settings file is always part of the result.
+    #
+    # Arguments:
+    #   scriptName -- The name of the script being evaluated, used as a prefix
+    #                 when non-empty.
+    #   envVarName -- The name fragment used to test for a DEBUG_-prefixed
+    #                 environment variable; when that variable exists, the debug
+    #                 prefix is included.
+    #   all        -- When non-zero, the debug prefix is included regardless of
+    #                 the environment variable, yielding every available prefix.
+    #
+    # Results:
+    #   Returns the list of prefixes, ordered from most specific to least, and
+    #   always ending with an empty-string element.
+    # </help>
+
     global env
 
     set result [list]
@@ -2300,6 +3944,48 @@ namespace eval ::PackageRepository {
   #
   # <public>
   proc maybeReadSettingsFiles { script } {
+    # <help>
+    # This procedure locates and evaluates package repository client settings
+    # script files that sit alongside a given script file, allowing per-user,
+    # per-host, per-script, and debug-specific overrides of the client's
+    # configuration to be applied automatically at load time.  It exists so
+    # that the defaults established by the various setup routines can be
+    # customized for a particular environment without editing the main script.
+    #
+    # How it works: it derives, from the supplied script path, the containing
+    # directory plus the root name and extension of the file.  It honors an
+    # opt-out: if an environment variable named NO_SETTINGS_ followed by the
+    # upper-cased root name is set, it does nothing.  Otherwise it asks
+    # [getSettingsPrefixes] for the candidate prefixes (user name, host name,
+    # script name, optionally debug, and the empty prefix) and constructs
+    # settings file names of the form rootname.settings followed by the
+    # optional dotted prefix and the original extension.  It sources, in the
+    # caller's frame via [uplevel 1], each prefix-specific settings file that
+    # exists, counting how many were applied.  If none matched explicitly, it
+    # falls back to globbing for any rootname.settings.* file with the same
+    # extension, skipping (a documented bugfix) any name already considered in
+    # the explicit pass so the same file is not sourced twice.
+    #
+    # SECURITY: The matched settings files are evaluated as ordinary script
+    # with the caller's privileges and are not signature-verified, so any file
+    # placed next to the client script with a conforming name can run arbitrary
+    # code and alter security-relevant settings (for example the strict
+    # language check or the OpenPGP verify command).  Errors raised while
+    # sourcing a settings file are intentionally not masked.  The fallback glob
+    # widens the set of files that may be sourced beyond the explicit prefix
+    # list.
+    #
+    # Arguments:
+    #   script -- The fully qualified path and file name of a package client
+    #             toolset script.  If it is empty or does not exist, no settings
+    #             files are read.
+    #
+    # Results:
+    #   Returns the number of settings files that were sourced.  Returns -1 when
+    #   the script argument is empty or names a nonexistent file, and -2 when
+    #   the matching NO_SETTINGS_ opt-out environment variable is set.
+    # </help>
+
     global env
     global tcl_platform
 
@@ -2390,6 +4076,37 @@ namespace eval ::PackageRepository {
   #       client.
   #
   proc maybeReadApiKeysFile {} {
+    # <help>
+    # This procedure optionally evaluates an external API keys script file, if
+    # one has been configured via an environment variable -AND- it actually
+    # exists on disk.  It exists so that API keys (used to authenticate package
+    # lookup requests) can be kept out of the main script and supplied
+    # separately at load time; the evaluated file normally appends to the
+    # "::pkgr_api_keys" variable.
+    #
+    # How it works: it consults two environment variables.  If PKGR_NO_API_KEYS_FILE
+    # is set, it returns immediately and reads nothing (an explicit opt-out).
+    # Otherwise, if PKGR_API_KEYS_FILE is set and names an existing file, it
+    # sources that file in the immediate caller's frame using [uplevel 1], so
+    # that any variables the file sets land in the caller's context rather than
+    # inside this procedure.
+    #
+    # SECURITY: The configured file is evaluated as ordinary script with the
+    # full privileges of the caller; it is not signature-verified.  Whoever can
+    # set PKGR_API_KEYS_FILE (and write the file it names) can therefore run
+    # arbitrary code in this interpreter, and the file holds authentication
+    # secrets.  Any error raised while sourcing the file is intentionally not
+    # masked and propagates to the caller.
+    #
+    # Arguments:
+    #   (none)
+    #
+    # Results:
+    #   Returns the result of sourcing the file, or an unspecified value when no
+    #   file is read; the meaningful effect is the side effect of evaluating the
+    #   configured API keys file (if any) in the caller's frame.
+    # </help>
+
     global env
 
     if {[info exists env(PKGR_NO_API_KEYS_FILE)]} then {
@@ -2412,6 +4129,52 @@ namespace eval ::PackageRepository {
   #       overwritten and set back to their default values.
   #
   proc setupRepositoryOpenPgpVars { force } {
+    # <help>
+    # This procedure establishes the default values for the namespace
+    # configuration variables that control how the client locates and drives a
+    # local OpenPGP implementation (such as GnuPG / gpg2).  It exists to give
+    # the OpenPGP signature workflow a single initialization point covering the
+    # candidate install directories, executable file names, and the command
+    # templates and result-matching patterns used to import keys, detect that
+    # OpenPGP is installed, verify detached signatures, and create detached
+    # signatures.
+    #
+    # How it works: like the other setup routines, for each setting it declares
+    # the namespace variable and assigns its default only when force is
+    # non-zero -OR- the variable does not yet exist, so that values provided by
+    # a settings file (which is read earlier) are preserved.  Several values are
+    # platform-specific: on Windows the install directories and executable names
+    # use Windows conventions (for example gpg2.exe under the GnuPG program
+    # directories) while non-Windows defaults point at the standard system
+    # binary location.  The command settings are stored as templates containing
+    # dollar-brace placeholders (for the executable name, target file name, and
+    # passphrase file) that are substituted at the point of use; described in
+    # words, each template wraps such placeholders in brace pairs so they are
+    # quoted as single arguments.  The install/import detection patterns are
+    # regular expressions tuned to specific gpg2 output.
+    #
+    # SECURITY: These settings determine which external program is trusted to
+    # verify package script signatures and how its success is recognized.  The
+    # verify command and the install/import detection patterns are therefore
+    # security-relevant: a misconfigured pattern that matches too loosely could
+    # cause a failed verification to be treated as success, and pointing the
+    # executable settings at an untrusted binary would undermine the entire
+    # OpenPGP trust path.  The signing command embeds a passphrase file path
+    # (obtained elsewhere) and runs in batch mode; the patterns are tied to
+    # particular gpg2 version output and may need updating for other releases.
+    # This procedure only sets defaults; it does not itself invoke OpenPGP.
+    #
+    # Arguments:
+    #   force -- When non-zero, every setting is overwritten with its default
+    #            value.  When zero, only settings that do not already exist are
+    #            initialized, preserving any values supplied beforehand.
+    #
+    # Results:
+    #   Returns the result of the final setting assignment; the meaningful
+    #   effect is the side effect of populating the OpenPGP-related namespace
+    #   configuration variables.
+    # </help>
+
     #
     # NOTE: This is the name of the sub-directory containing the OpenPGP
     #       implementation.  It is platform-specific.  On Windows, this
@@ -2534,6 +4297,48 @@ namespace eval ::PackageRepository {
   #       and set back to their default values.
   #
   proc setupPackageUnknownVars { force } {
+    # <help>
+    # This procedure establishes the default values for the namespace
+    # configuration variables that govern the package repository client's
+    # [package unknown] behavior and signing commands.  It exists so that the
+    # package has a single, well-defined initialization point for its tunable
+    # settings, run once when the package is loaded (with force false, so any
+    # values already provided by a settings file are preserved) and available
+    # to be re-run to forcibly reset everything to defaults.
+    #
+    # How it works: for each setting it declares the namespace variable and,
+    # when force is non-zero -OR- the variable does not yet exist, assigns the
+    # default.  This guard is what lets previously read settings files override
+    # these defaults: those files run before this procedure with force false,
+    # so an already-set variable is left untouched.  Several defaults are
+    # computed at runtime: autoLoadTcl probes whether a trusted native Tcl
+    # library can be selected (only meaningful in Eagle), and autoRequireGaruda
+    # checks whether a Garuda package is available (only meaningful in native
+    # Tcl).  The harpySignCommand value is assembled as a command template
+    # containing dollar-brace placeholders that are substituted elsewhere.
+    #
+    # SECURITY: Two of these settings have direct security relevance.  The
+    # autoApiKeys default is an all-zero placeholder key; it is explicitly
+    # documented as subject to change and possibly non-working, so callers must
+    # not rely on it for authentication.  More importantly, strictUnknownLanguage
+    # defaults to true, which causes the metadata verification path to reject a
+    # repository package whose target language does not match the current
+    # language when invoked from the unknown handler; lowering this weakens that
+    # check.  The verbose flags default to false to avoid leaking lookup and
+    # download details into the log.
+    #
+    # Arguments:
+    #   force -- When non-zero, every setting is overwritten with its default
+    #            value, discarding any prior or externally configured value.
+    #            When zero, only settings that do not already exist are
+    #            initialized, preserving values supplied beforehand.
+    #
+    # Results:
+    #   Returns the result of the final setting assignment; the meaningful
+    #   effect is the side effect of populating the namespace configuration
+    #   variables.
+    # </help>
+
     #
     # NOTE: What is the default set of API keys if none were set explicitly?
     #       This list is subject to change at any time -AND- may be empty or
@@ -2647,6 +4452,71 @@ namespace eval ::PackageRepository {
   #
   # <public>
   proc getPackageFromRepository { package version caller } {
+    # <help>
+    # This procedure is the primary entry point to the package repository
+    # client and the orchestrator for the entire download-verify-evaluate
+    # pipeline.  Given a package name and an optional version requirement, it
+    # contacts the configured package repository server, retrieves the lookup
+    # metadata describing the package, validates that metadata, and then hands
+    # it off for secure evaluation so that the package becomes available to the
+    # interpreter.  It exists so that the custom [package unknown] handler (and
+    # direct callers) have a single place that ties together API key handling,
+    # the HTTP lookup, the success-or-failure protocol with the server, and the
+    # signed-script verification machinery.
+    #
+    # How it works: it first obtains the configured list of API keys and issues
+    # a non-anonymous lookup request via [getLookupData].  It extracts the
+    # response code from the raw data with [getResponseCodeFromRawData].  If
+    # that code does not indicate success (per [isResponseCodeOk]), it falls
+    # back to an anonymous lookup request (an empty API key list) and re-reads
+    # the response code.  It then extracts the response result.  If the final
+    # code still does not indicate success, it raises an error using the
+    # returned result text as the message when one is present, or the entire
+    # raw response data otherwise; the package is NOT loaded in that case.  On
+    # success it calls [extractAndVerifyLookupMetadata] to parse and validate
+    # the metadata into a local array, then [processLookupMetadata] to verify
+    # the script signature and evaluate the package script.
+    #
+    # SECURITY: This routine performs no cryptographic verification itself; the
+    # trust decisions live downstream.  [extractAndVerifyLookupMetadata]
+    # enforces structural validity and rejects metadata that lacks a name,
+    # patch level, script, or certificate (an unsigned script is refused), and
+    # [processLookupMetadata] performs the actual signature verification (Harpy
+    # or OpenPGP) before any package script is evaluated.  This procedure is
+    # therefore fail-closed with respect to load failures: any error in the
+    # lookup, validation, or verification chain propagates to the caller and
+    # prevents the package from being provided.  Note, however, the anonymous
+    # fallback: a failed authenticated lookup will silently retry without API
+    # keys, so a package may still be located and (if its signature verifies)
+    # loaded via the public path even when the supplied keys do not work.  The
+    # transport itself (see [getLookupData]) determines whether the lookup is
+    # carried over a secure channel; this procedure relies on the downloaded
+    # script's signature, not the transport, for its trust guarantee.
+    #
+    # Arguments:
+    #   package -- The name of the package being sought.  It cannot be an empty
+    #              string and is expected to conform to the package name
+    #              conventions (the returned metadata name is independently
+    #              re-validated downstream).
+    #   version -- The version being requested.  It must be a specific version
+    #              -OR- a package specification that conforms to TIP #268, or an
+    #              empty string to request any available version.
+    #   caller  -- Provenance of the request.  It must be an empty string -OR-
+    #              the literal string "handler".  The value "handler" enables
+    #              stricter language checking in the downstream metadata
+    #              verification (the package script language must match the
+    #              current language when strict-unknown-language mode is in
+    #              effect).
+    #
+    # Results:
+    #   Returns the result of evaluating the verified package script (typically
+    #   the empty string).  Raises a script error if the server lookup fails
+    #   (both authenticated and anonymous), if the returned metadata is missing
+    #   or malformed, if the script is unsigned or its signature cannot be
+    #   verified, or if the required verification tooling is unavailable.  In
+    #   every error case the package is left unprovided.
+    # </help>
+
     #
     # NOTE: Get the list of API keys and try each one, in order, until
     #       the package is found.

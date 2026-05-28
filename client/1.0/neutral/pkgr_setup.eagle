@@ -27,6 +27,36 @@ namespace eval ::PackageSetup {
   #       emit the command line usage information.
   #
   proc usage { {error ""} } {
+    # <help>
+    # This procedure reports a fatal usage error for the package setup tool and
+    # then terminates the process.  It exists to give the operator a clear,
+    # consistent message when the tool cannot proceed and to print the
+    # canonical command line syntax.  It is the single "give up and explain how
+    # to use me" exit point for this tool.
+    #
+    # How it works: if a non-empty error string is supplied, it is written to
+    # the standard output channel first.  It then prints a usage line built
+    # from the tail of the running executable name and the tail of the current
+    # script name.  This tool takes no command line arguments of its own, so
+    # the template lists none.  Finally it calls [exit 1], so this procedure
+    # never returns; the process ends with a non-zero (failure) status.
+    #
+    # SECURITY: this setup tool downloads and imports the package signing
+    # OpenPGP key(s) into the local key store, which establishes the trust
+    # anchor used later to verify package signatures.  This [usage] procedure
+    # itself only reports errors and exits; it performs no key handling.  Any
+    # failure to download or import the signing key(s) is surfaced elsewhere as
+    # a hard error rather than through this procedure.
+    #
+    # Arguments:
+    #   error -- Optional.  A specific error message to print before the usage
+    #            text.  When omitted or empty, only the usage text is printed.
+    #
+    # Results:
+    #   Does not return; the process is terminated via [exit 1] with a failure
+    #   exit status.
+    # </help>
+
     if {[string length $error] > 0} then {puts stdout $error}
 
     puts stdout "usage:\
